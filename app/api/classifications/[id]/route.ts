@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { getCurrentWorkspace } from "@/lib/auth/session";
+import { getOptionalWorkspace } from "@/lib/auth/session";
 import { getClassification } from "@/lib/db/repository";
 
 export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const workspace = await getCurrentWorkspace();
+  const workspace = await getOptionalWorkspace();
+  if (!workspace) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
   const classification = await getClassification(params.id, workspace.organization.id);
 
   if (!classification) {

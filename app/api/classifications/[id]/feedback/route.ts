@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { getCurrentWorkspace } from "@/lib/auth/session";
+import { getOptionalWorkspace } from "@/lib/auth/session";
 import { getAnalyticsProvider } from "@/lib/analytics/provider";
 import { saveFeedback, trackUsageEvent } from "@/lib/db/repository";
 import { feedbackSchema } from "@/lib/validation/classification";
@@ -10,7 +10,11 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const workspace = await getCurrentWorkspace();
+    const workspace = await getOptionalWorkspace();
+    if (!workspace) {
+      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    }
+
     const payload = feedbackSchema.parse(await request.json());
     const feedback = await saveFeedback(workspace.organization.id, params.id, payload);
     await trackUsageEvent(workspace.organization.id, "ui.feedback.created", 1, {

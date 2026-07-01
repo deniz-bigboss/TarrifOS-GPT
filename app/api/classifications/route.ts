@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { getCurrentWorkspace } from "@/lib/auth/session";
+import { getOptionalWorkspace } from "@/lib/auth/session";
 import { getAnalyticsProvider } from "@/lib/analytics/provider";
 import { normalizeProductInput } from "@/lib/classification/normalize";
 import { runClassificationPipeline } from "@/lib/classification/pipeline";
@@ -10,14 +10,22 @@ import { captureError } from "@/lib/observability/error-tracking";
 import { getRateLimitProvider } from "@/lib/rate-limit/provider";
 
 export async function GET() {
-  const workspace = await getCurrentWorkspace();
+  const workspace = await getOptionalWorkspace();
+  if (!workspace) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
   const classifications = await listClassifications(workspace.organization.id);
   return NextResponse.json({ classifications });
 }
 
 export async function POST(request: Request) {
   try {
-    const workspace = await getCurrentWorkspace();
+    const workspace = await getOptionalWorkspace();
+    if (!workspace) {
+      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    }
+
     const body = await request.json();
     const normalizedInput = normalizeProductInput(body);
     const duplicate = await findDuplicateClassification(workspace.organization.id, normalizedInput);
