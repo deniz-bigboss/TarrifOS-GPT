@@ -1,12 +1,17 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/env";
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/lib/supabase/server";
 import { clearMockSession, setMockSession } from "@/lib/auth/session";
 
 function readString(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
+}
+
+function isUserAlreadyRegisteredError(message: string) {
+  const normalized = message.toLowerCase();
+  return normalized.includes("already registered") || normalized.includes("already been registered");
 }
 
 export async function signUpAction(formData: FormData) {
@@ -16,18 +21,47 @@ export async function signUpAction(formData: FormData) {
 
   if (isSupabaseConfigured()) {
     const supabase = createSupabaseServerClient();
-    const response = await supabase?.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
+
+    if (isSupabaseServiceConfigured()) {
+      const serviceClient = createSupabaseServiceClient();
+      const createResponse = await serviceClient?.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
           full_name: fullName
         }
-      }
-    });
+      });
 
-    if (response?.error) {
-      redirect(`/auth/signup?error=${encodeURIComponent(response.error.message)}`);
+      if (createResponse?.error && !isUserAlreadyRegisteredError(createResponse.error.message)) {
+        redirect(`/auth/signup?error=${encodeURIComponent(createResponse.error.message)}`);
+      }
+
+      const loginResponse = await supabase?.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (loginResponse?.error) {
+        const message = createResponse?.error
+          ? "Account already exists. Log in with the password you used before."
+          : loginResponse.error.message;
+        redirect(`/auth/login?error=${encodeURIComponent(message)}`);
+      }
+    } else {
+      const response = await supabase?.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName
+          }
+        }
+      });
+
+      if (response?.error) {
+        redirect(`/auth/signup?error=${encodeURIComponent(response.error.message)}`);
+      }
     }
   } else {
     await setMockSession(email || "demo@tariffos.local");
