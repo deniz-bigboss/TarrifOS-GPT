@@ -384,15 +384,17 @@ export function generateShippingAgentPlan({
   const unitValue = getUnitValue(input);
   const totalWeight = getTotalWeight(input);
   const lane = `${input.originCountry} -> ${input.destinationCountry}`;
+  const dutyBasis = dutyRatePlaceholder.replace(/\.+$/, "");
+  const topAction = nextActions[0]?.title ?? "Confirm shipment readiness";
   const metrics = unique([
     input.shippingMethod ? `method: ${input.shippingMethod}` : "",
     unitValue ? `unit value: ${formatNumber(unitValue)} ${input.currency ?? ""}` : "",
     totalWeight ? `estimated shipment weight: ${formatNumber(totalWeight)} kg` : "",
-    `duty basis: ${dutyRatePlaceholder}`
+    `duty basis: ${dutyBasis}`
   ]);
 
   return {
-    strategic_summary: `TariffOS is treating this as a ${lane} shipment plan for ${input.productName}. The agent is using ${result.recommended_code} as the working classification and prioritizing ${nextActions[0]?.title.toLowerCase() ?? "customs readiness"} before shipment movement. ${metrics.join("; ")}.`,
+    strategic_summary: `TariffOS is treating this as a ${lane} shipment plan for ${input.productName}. The agent is using ${result.recommended_code} as the working classification. Top priority: ${topAction}. ${metrics.join("; ")}.`,
     readiness_score: readiness,
     readiness_label: readinessLabel(readiness, result),
     next_actions: nextActions,
