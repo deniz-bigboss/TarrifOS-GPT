@@ -32,10 +32,10 @@ export default async function ClassificationsPage({
     <AppShell workspace={workspace}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-normal text-slate-950">Classifications</h1>
-          <p className="mt-2 text-sm text-slate-600">Filter previous classification results by lane, confidence, review state, or category.</p>
+          <h1 className="text-3xl font-semibold tracking-normal text-slate-950">Shipment plans</h1>
+          <p className="mt-2 text-sm text-slate-600">Filter previous agent outputs by lane, confidence, review state, or category.</p>
         </div>
-        <ButtonLink href="/dashboard/classify">New request</ButtonLink>
+        <ButtonLink href="/dashboard/classify">New shipment plan</ButtonLink>
       </div>
 
       <form className="mt-6 grid gap-4 rounded-lg border border-border bg-white p-4 shadow-sm md:grid-cols-5">

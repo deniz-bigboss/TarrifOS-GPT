@@ -17,7 +17,7 @@ const steps = [
   { label: "Product basics", description: "Identity and composition", icon: PackageSearch },
   { label: "Trade lane", description: "Origin, destination, value", icon: Route },
   { label: "Documents", description: "Invoices and specs", icon: FileText },
-  { label: "Review", description: "Ready for generation", icon: ClipboardCheck }
+  { label: "Agent brief", description: "Ready for planning", icon: ClipboardCheck }
 ];
 type WizardField = keyof ProductInputPayload;
 
@@ -379,7 +379,7 @@ export function ClassificationWizard() {
                 </span>
                 <div>
                   <h2 className="text-lg font-semibold text-slate-950">Review request</h2>
-                  <p className="mt-1 text-sm text-slate-600">Submit to retrieve candidates and generate a broker-ready recommendation.</p>
+              <p className="mt-1 text-sm text-slate-600">Submit to generate classification, document, cost, and shipment execution guidance.</p>
                 </div>
               </div>
             </CardHeader>
@@ -421,7 +421,7 @@ export function ClassificationWizard() {
           ) : (
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Generate classification
+              Generate shipment plan
             </Button>
           )}
         </div>
@@ -452,7 +452,7 @@ export function ClassificationWizard() {
             <div className="border-t border-white/10 pt-4">
               <p className="text-xs font-semibold uppercase text-emerald-300">Classification flow</p>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Candidate codes, risk flags, and the final recommendation are generated after the review step.
+                Candidate codes, risk flags, document tasks, cost actions, and a shipment plan are generated after the final step.
               </p>
             </div>
           </CardContent>

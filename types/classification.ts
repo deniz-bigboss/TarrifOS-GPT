@@ -46,6 +46,50 @@ export type AlternativeCode = {
   confidence: number;
 };
 
+export type AgentPriority = "critical" | "high" | "medium" | "low";
+
+export type ShippingAgentAction = {
+  title: string;
+  priority: AgentPriority;
+  owner: string;
+  timeline: string;
+  reason: string;
+  businessImpact: string;
+};
+
+export type ShippingDocumentStatus = "attached" | "missing" | "recommended";
+
+export type ShippingDocumentChecklistItem = {
+  name: string;
+  status: ShippingDocumentStatus;
+  reason: string;
+  owner: string;
+};
+
+export type ShippingComplianceCheckpoint = {
+  title: string;
+  severity: AgentPriority;
+  description: string;
+  nextStep: string;
+};
+
+export type ShippingTimelinePhase = {
+  phase: string;
+  items: string[];
+};
+
+export type ShippingAgentPlan = {
+  strategic_summary: string;
+  readiness_score: number;
+  readiness_label: "blocked" | "needs_work" | "ready_with_review" | "ready";
+  next_actions: ShippingAgentAction[];
+  cost_reduction_actions: ShippingAgentAction[];
+  document_checklist: ShippingDocumentChecklistItem[];
+  compliance_checkpoints: ShippingComplianceCheckpoint[];
+  shipment_timeline: ShippingTimelinePhase[];
+  agent_questions: string[];
+};
+
 export type ClassificationAIResult = {
   recommended_code: string;
   recommended_title: string;
@@ -61,6 +105,7 @@ export type ClassificationAIResult = {
   human_review_reason: string;
   broker_ready_explanation: string;
   disclaimer: string;
+  agent_plan?: ShippingAgentPlan;
 };
 
 export type ClassificationPipelineResult = ClassificationAIResult & {

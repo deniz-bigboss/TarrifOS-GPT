@@ -7,8 +7,8 @@ import type { WorkspaceSession } from "@/lib/db/domain";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/classify", label: "New classification", icon: PlusCircle },
-  { href: "/classifications", label: "Classifications", icon: FileSearch },
+  { href: "/dashboard/classify", label: "New shipment plan", icon: PlusCircle },
+  { href: "/classifications", label: "Shipment plans", icon: FileSearch },
   { href: "/dashboard/api-keys", label: "API keys", icon: KeyRound },
   { href: "/pricing", label: "Plans", icon: BarChart3 }
 ];
@@ -31,7 +31,7 @@ export function AppShell({
               </span>
               <span>
                 <span className="block text-lg font-semibold leading-5 text-slate-950">TariffOS</span>
-                <span className="mt-1 block text-xs font-medium text-slate-500">Trade intelligence workspace</span>
+                <span className="mt-1 block text-xs font-medium text-slate-500">Shipping operations agent</span>
               </span>
             </Link>
             <div className="mt-3 flex items-center gap-2">
@@ -72,7 +72,7 @@ export function AppShell({
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between">
             <Link href="/dashboard" className="font-semibold text-slate-950">TariffOS</Link>
-            <Link href="/dashboard/classify" className="text-sm font-medium text-emerald-700">New</Link>
+            <Link href="/dashboard/classify" className="text-sm font-medium text-emerald-700">New plan</Link>
           </div>
         </header>
         <main className="mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 lg:px-8">{children}</main>

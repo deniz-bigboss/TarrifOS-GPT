@@ -7,8 +7,8 @@ import { ButtonLink } from "@/components/ui/button";
 const workflow = [
   "Normalize product and trade-lane data",
   "Retrieve seed HS-style candidates",
-  "Reason over evidence and risk flags",
-  "Generate a broker-ready report"
+  "Generate document and compliance gates",
+  "Produce cost actions and a shipment plan"
 ];
 
 const customerTypes = [
@@ -34,16 +34,17 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/72 to-slate-950/20" />
         <div className="relative z-10 mx-auto flex min-h-[92vh] max-w-7xl flex-col justify-center px-4 pb-24 pt-28 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
-            <Badge className="border-white/20 bg-white/10 text-white">AI-native customs workflow</Badge>
+            <Badge className="border-white/20 bg-white/10 text-white">AI shipping operations agent</Badge>
             <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-normal text-white sm:text-6xl">
-              TariffOS helps importers classify products, estimate landed costs, and prepare customs-ready documentation.
+              TariffOS
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">
-              AI-powered tariff classification with evidence, confidence scores, and broker-ready reports.
+              An AI-assisted workspace for importers and exporters that turns product facts into HS recommendations,
+              document checklists, compliance checkpoints, cost-saving actions, and shipment execution plans.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="/auth/signup" size="lg">
-                Start classifying products
+                Create shipment plan
                 <ArrowRight className="h-4 w-4" />
               </ButtonLink>
               <ButtonLink href="/pricing" size="lg" className="border-white/25 bg-white/10 text-white hover:bg-white/20">
@@ -68,7 +69,7 @@ export default function LandingPage() {
                 <ShieldCheck className="h-5 w-5 text-blue-700" />
                 <p className="mt-4 text-sm font-medium text-slate-900">{item}</p>
                 <p className="mt-2 text-sm text-slate-600">
-                  TariffOS keeps recommendations structured, evidenced, and explicitly reviewable.
+                  TariffOS turns each shipment into a structured operating plan with evidence, actions, and review gates.
                 </p>
               </div>
             ))}
@@ -116,22 +117,22 @@ export default function LandingPage() {
           <div>
             <Badge tone="blue">Example output</Badge>
             <h2 className="mt-4 text-3xl font-semibold tracking-normal text-slate-950">
-              Broker-ready classification packets, not chatbot transcripts.
+              Shipment execution plans, not chatbot transcripts.
             </h2>
             <p className="mt-4 text-slate-600">
-              Every result includes candidate codes, confidence, missing information, required documents, warnings, and a human-review flag.
+              Every result includes candidate codes, confidence, missing information, required documents, warnings, next actions, compliance gates, and cost-reduction levers.
             </p>
           </div>
           <div className="rounded-lg border border-border bg-slate-950 p-5 text-white shadow-soft">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
-                <p className="text-xs uppercase text-slate-400">Recommended code</p>
-                <p className="mt-1 text-2xl font-semibold">6109.10</p>
+                <p className="text-xs uppercase text-slate-400">Shipment readiness</p>
+                <p className="mt-1 text-2xl font-semibold">82%</p>
               </div>
-              <Badge tone="green">high confidence</Badge>
+              <Badge tone="green">ready with review</Badge>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              {["Commercial invoice", "Packing list", "Certificate of origin"].map((item) => (
+              {["Confirm HS code", "Collect origin proof", "Compare freight quotes"].map((item) => (
                 <div key={item} className="rounded-md border border-white/10 bg-white/5 p-3 text-sm text-slate-200">
                   <FileText className="mb-3 h-4 w-4 text-blue-300" />
                   {item}
@@ -139,7 +140,7 @@ export default function LandingPage() {
               ))}
             </div>
             <p className="mt-5 text-sm leading-6 text-slate-300">
-              Likely cotton knitted t-shirt classification based on material, construction, and intended apparel use. Final treatment should be confirmed by a qualified customs professional.
+              Agent plan for a cotton t-shirt shipment: use 6109.10 as the working classification, collect the invoice and origin evidence, validate value basis, and benchmark carrier options before booking.
             </p>
           </div>
         </div>
@@ -156,7 +157,7 @@ export default function LandingPage() {
               <Sparkles className="h-5 w-5 text-blue-700" />
               <p className="mt-4 text-lg font-semibold text-slate-950">{plan}</p>
               <p className="mt-2 text-sm text-slate-600">
-                Classification history, exports, and API access scale by plan.
+                Shipment plans, exports, and API access scale by plan.
               </p>
             </div>
           ))}

@@ -4,9 +4,9 @@ import { getCurrentWorkspace } from "@/lib/auth/session";
 import { BadgeCheck, Database, ShieldCheck } from "lucide-react";
 
 const pageHighlights = [
-  { icon: Database, label: "Seed tariff data", value: "EU/US demo catalog" },
-  { icon: ShieldCheck, label: "Risk checks", value: "Flags review cases" },
-  { icon: BadgeCheck, label: "Saved result", value: "Audit-ready record" }
+  { icon: Database, label: "Tariff intelligence", value: "HS candidates and duty basis" },
+  { icon: ShieldCheck, label: "Agent checks", value: "Docs, risk, and compliance gates" },
+  { icon: BadgeCheck, label: "Execution plan", value: "Actions your team can use" }
 ];
 
 export default async function NewClassificationPage() {
@@ -17,10 +17,10 @@ export default async function NewClassificationPage() {
       <div className="mb-7 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
         <div className="grid gap-6 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-7">
           <div>
-            <p className="text-sm font-semibold text-emerald-700">Structured classification workflow</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">Create classification request</h1>
+            <p className="text-sm font-semibold text-emerald-700">AI shipping operations agent</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">Create shipment plan</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Capture the product facts, trade lane, and supporting documents needed for a broker-ready tariff recommendation.
+              Capture the product facts, trade lane, and supporting documents needed for classification, cost actions, compliance gates, and broker-ready execution.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">

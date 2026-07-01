@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, FileSearch, Gauge } from "lucide-react";
+import { AlertTriangle, BarChart3, FileSearch, Gauge, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { ClassificationsTable } from "@/components/classification/classifications-table";
@@ -17,11 +17,14 @@ export default async function DashboardPage() {
           <p className="text-sm font-medium text-blue-700">{workspace.organization.name}</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">Dashboard</h1>
         </div>
-        <ButtonLink href="/dashboard/classify">Create classification</ButtonLink>
+        <ButtonLink href="/dashboard/classify">
+          <Sparkles className="h-4 w-4" />
+          Create shipment plan
+        </ButtonLink>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total classifications" value={metrics.totalClassifications} icon={<FileSearch className="h-5 w-5" />} />
+        <MetricCard label="Shipment plans" value={metrics.totalClassifications} icon={<FileSearch className="h-5 w-5" />} />
         <MetricCard label="High confidence" value={metrics.highConfidence} icon={<Gauge className="h-5 w-5" />} />
         <MetricCard label="Needs review" value={metrics.needsReview} icon={<AlertTriangle className="h-5 w-5" />} />
         <MetricCard label="API usage" value={metrics.apiUsage} icon={<BarChart3 className="h-5 w-5" />} />
@@ -29,7 +32,7 @@ export default async function DashboardPage() {
 
       <section className="mt-8">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-950">Recent classifications</h2>
+          <h2 className="text-lg font-semibold text-slate-950">Recent shipment plans</h2>
           <ButtonLink href="/classifications" variant="outline" size="sm">View all</ButtonLink>
         </div>
         <ClassificationsTable data={metrics.recentClassifications} />

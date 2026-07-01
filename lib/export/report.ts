@@ -2,9 +2,10 @@ import type { StoredClassification } from "@/types/classification";
 
 export function buildMarkdownReport(classification: StoredClassification) {
   const { request, result } = classification;
+  const agentPlan = result.agent_plan;
 
   return [
-    `# TariffOS Classification Report`,
+    `# TariffOS Shipment Agent Report`,
     ``,
     `## Product`,
     `- Product name: ${request.productName}`,
@@ -32,6 +33,32 @@ export function buildMarkdownReport(classification: StoredClassification) {
     `## Reasoning`,
     result.reasoning_summary,
     ``,
+    agentPlan ? `## Shipping Operations Agent` : "",
+    agentPlan ? `- Readiness: ${agentPlan.readiness_score}% (${agentPlan.readiness_label})` : "",
+    agentPlan ? `- Summary: ${agentPlan.strategic_summary}` : "",
+    agentPlan ? `` : "",
+    agentPlan ? `### Next Actions` : "",
+    ...(agentPlan?.next_actions.map(
+      (item) =>
+        `- [${item.priority}] ${item.title} - Owner: ${item.owner}; Timing: ${item.timeline}; Impact: ${item.businessImpact}`
+    ) ?? []),
+    agentPlan ? `` : "",
+    agentPlan ? `### Cost Reduction Levers` : "",
+    ...(agentPlan?.cost_reduction_actions.map(
+      (item) =>
+        `- [${item.priority}] ${item.title} - Owner: ${item.owner}; Timing: ${item.timeline}; Impact: ${item.businessImpact}`
+    ) ?? []),
+    agentPlan ? `` : "",
+    agentPlan ? `### Agent Document Checklist` : "",
+    ...(agentPlan?.document_checklist.map(
+      (document) => `- ${document.name}: ${document.status}; Owner: ${document.owner}; ${document.reason}`
+    ) ?? []),
+    agentPlan ? `` : "",
+    agentPlan ? `### Compliance Checkpoints` : "",
+    ...(agentPlan?.compliance_checkpoints.map(
+      (checkpoint) => `- [${checkpoint.severity}] ${checkpoint.title}: ${checkpoint.nextStep}`
+    ) ?? []),
+    agentPlan ? `` : "",
     `## Key Factors`,
     ...result.key_factors.map((factor) => `- ${factor}`),
     ``,

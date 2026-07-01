@@ -134,6 +134,7 @@ function mapStored(row: Record<string, any>): StoredClassification {
       human_review_reason: row.human_review_reason ?? "",
       broker_ready_explanation: row.broker_ready_explanation ?? "",
       disclaimer: raw.disclaimer ?? "",
+      agent_plan: raw.agent_plan,
       candidates,
       duty_rate_placeholder: raw.duty_rate_placeholder ?? "Duty estimate placeholder",
       raw_ai_output: raw,

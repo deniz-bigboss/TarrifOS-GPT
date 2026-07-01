@@ -2,6 +2,7 @@ import { getAIProvider } from "@/lib/ai";
 import { confidenceLabel, includesHighRiskTerms } from "@/lib/compliance";
 import { trackAIUsageEvent } from "@/lib/db/repository";
 import { getCandidateSearchProvider } from "@/lib/search/provider";
+import { generateShippingAgentPlan } from "@/lib/shipping-agent/plan";
 import { getTariffDataProvider } from "@/lib/tariff-data/provider";
 import type { ClassificationAIResult, ClassificationPipelineResult, NormalizedProductInput } from "@/types/classification";
 import { LEGAL_DISCLAIMER } from "@/types/classification";
@@ -289,12 +290,22 @@ export async function runClassificationPipeline(payload: unknown, context: Class
     normalizedInput.originCountry,
     normalizedInput.destinationCountry
   );
+  const resultWithBrokerReport = {
+    ...validated,
+    broker_ready_explanation: brokerReport
+  };
+  const agentPlan = generateShippingAgentPlan({
+    input: normalizedInput,
+    result: resultWithBrokerReport,
+    candidates,
+    dutyRatePlaceholder: duty.dutyRatePlaceholder
+  });
 
   return {
     normalizedInput,
     result: {
-      ...validated,
-      broker_ready_explanation: brokerReport,
+      ...resultWithBrokerReport,
+      agent_plan: agentPlan,
       candidates,
       duty_rate_placeholder: duty.dutyRatePlaceholder
     }

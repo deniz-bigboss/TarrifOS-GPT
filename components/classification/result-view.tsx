@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, FileText, HelpCircle, ShieldAlert } from "
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import type { StoredClassification } from "@/types/classification";
+import { ShippingAgentPlanView } from "@/components/shipping-agent/agent-plan";
 import { ConfidenceBadge } from "./confidence";
 import { ExportButtons } from "./export-buttons";
 import { FeedbackForm } from "./feedback-form";
@@ -51,7 +52,7 @@ export function ResultView({ classification }: { classification: StoredClassific
         <div>
           <p className="text-sm font-medium text-blue-700">{request.productName}</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
-            Recommended code {result.recommended_code}
+            Shipment plan for {result.recommended_code}
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{result.recommended_title}</p>
         </div>
@@ -99,6 +100,8 @@ export function ResultView({ classification }: { classification: StoredClassific
           </CardContent>
         </Card>
       </div>
+
+      <ShippingAgentPlanView plan={result.agent_plan} />
 
       <Card>
         <CardHeader>

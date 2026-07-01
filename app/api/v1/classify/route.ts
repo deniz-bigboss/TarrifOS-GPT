@@ -29,6 +29,7 @@ export async function POST(request: Request) {
         alternative_codes: duplicate.result.alternative_codes,
         required_documents: duplicate.result.required_documents,
         restriction_warnings: duplicate.result.restriction_warnings,
+        agent_plan: duplicate.result.agent_plan,
         broker_ready_explanation: duplicate.result.broker_ready_explanation,
         disclaimer: duplicate.result.disclaimer,
         cache_hit: true
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
       alternative_codes: saved.result.alternative_codes,
       required_documents: saved.result.required_documents,
       restriction_warnings: saved.result.restriction_warnings,
+      agent_plan: saved.result.agent_plan,
       broker_ready_explanation: saved.result.broker_ready_explanation,
       disclaimer: saved.result.disclaimer
     });

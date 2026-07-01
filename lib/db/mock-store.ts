@@ -154,7 +154,8 @@ export async function saveMockClassification(
         human_review_required: result.human_review_required,
         human_review_reason: result.human_review_reason,
         broker_ready_explanation: result.broker_ready_explanation,
-        disclaimer: result.disclaimer
+        disclaimer: result.disclaimer,
+        agent_plan: result.agent_plan
       },
       createdAt
     }

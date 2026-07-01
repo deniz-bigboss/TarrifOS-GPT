@@ -66,6 +66,18 @@ const columns: ColumnDef<StoredClassification>[] = [
       )
   },
   {
+    accessorKey: "result.agent_plan.readiness_score",
+    header: "Readiness",
+    cell: ({ row }) =>
+      row.original.result.agent_plan ? (
+        <Badge tone={row.original.result.agent_plan.readiness_score >= 78 ? "green" : row.original.result.agent_plan.readiness_score >= 55 ? "blue" : "amber"}>
+          {row.original.result.agent_plan.readiness_score}%
+        </Badge>
+      ) : (
+        <span className="text-sm text-slate-400">Not generated</span>
+      )
+  },
+  {
     accessorKey: "request.createdAt",
     header: "Created",
     cell: ({ row }) => (
@@ -87,8 +99,8 @@ export function ClassificationsTable({ data }: { data: StoredClassification[] })
   if (!data.length) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-white p-8 text-center">
-        <p className="text-sm font-medium text-slate-900">No classifications yet</p>
-        <p className="mt-2 text-sm text-slate-500">Create your first request to start building a trade-lane history.</p>
+        <p className="text-sm font-medium text-slate-900">No shipment plans yet</p>
+        <p className="mt-2 text-sm text-slate-500">Create your first plan to start building a trade-lane history.</p>
       </div>
     );
   }
@@ -96,7 +108,7 @@ export function ClassificationsTable({ data }: { data: StoredClassification[] })
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-left">
+        <table className="w-full min-w-[940px] text-left">
           <thead className="border-b border-border bg-slate-50">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
