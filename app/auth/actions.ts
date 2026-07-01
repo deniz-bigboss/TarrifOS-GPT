@@ -14,6 +14,34 @@ function isUserAlreadyRegisteredError(message: string) {
   return normalized.includes("already registered") || normalized.includes("already been registered");
 }
 
+async function confirmPendingUser(email: string, password: string, fullName: string) {
+  const serviceClient = createSupabaseServiceClient();
+  const usersResponse = await serviceClient?.auth.admin.listUsers({ page: 1, perPage: 1000 });
+
+  if (usersResponse?.error) {
+    return usersResponse.error.message;
+  }
+
+  const existingUser = usersResponse?.data.users.find(
+    (user) => user.email?.toLowerCase() === email.toLowerCase()
+  );
+
+  if (!existingUser?.id || existingUser.email_confirmed_at || existingUser.confirmed_at) {
+    return null;
+  }
+
+  const updateResponse = await serviceClient?.auth.admin.updateUserById(existingUser.id, {
+    password,
+    email_confirm: true,
+    user_metadata: {
+      ...existingUser.user_metadata,
+      full_name: fullName
+    }
+  });
+
+  return updateResponse?.error?.message ?? null;
+}
+
 export async function signUpAction(formData: FormData) {
   const email = readString(formData, "email");
   const password = readString(formData, "password");
@@ -33,8 +61,15 @@ export async function signUpAction(formData: FormData) {
         }
       });
 
-      if (createResponse?.error && !isUserAlreadyRegisteredError(createResponse.error.message)) {
-        redirect(`/auth/signup?error=${encodeURIComponent(createResponse.error.message)}`);
+      if (createResponse?.error) {
+        if (!isUserAlreadyRegisteredError(createResponse.error.message)) {
+          redirect(`/auth/signup?error=${encodeURIComponent(createResponse.error.message)}`);
+        }
+
+        const pendingUserError = await confirmPendingUser(email, password, fullName);
+        if (pendingUserError) {
+          redirect(`/auth/signup?error=${encodeURIComponent(pendingUserError)}`);
+        }
       }
 
       const loginResponse = await supabase?.auth.signInWithPassword({
