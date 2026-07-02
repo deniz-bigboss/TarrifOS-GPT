@@ -8,7 +8,7 @@ export type QuickFindItem = {
   category?: string;
   sourceName: string;
   sourceUrl?: string;
-  confidence: "internet" | "inferred";
+  confidence: "ai_search" | "internet" | "inferred";
 };
 
 type DuckDuckGoTopic = {
@@ -24,8 +24,44 @@ type DuckDuckGoResponse = {
   RelatedTopics?: DuckDuckGoTopic[];
 };
 
+type GeminiCitation = {
+  type?: string;
+  url?: string;
+  title?: string;
+};
+
+type GeminiTextBlock = {
+  type?: string;
+  text?: string;
+  annotations?: GeminiCitation[];
+};
+
+type GeminiStep = {
+  type?: string;
+  content?: GeminiTextBlock[];
+};
+
+type GeminiInteractionResponse = {
+  output_text?: string;
+  steps?: GeminiStep[];
+};
+
+type GeminiProductPayload = {
+  productName?: string;
+  productDescription?: string;
+  materialComposition?: string;
+  intendedUse?: string;
+  brand?: string;
+  model?: string;
+  category?: string;
+};
+
 function clean(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function optionalClean(value: unknown) {
+  return typeof value === "string" && value.trim() ? clean(value) : undefined;
 }
 
 function firstRelatedTopic(topics: DuckDuckGoTopic[] = []): DuckDuckGoTopic | null {
@@ -36,6 +72,113 @@ function firstRelatedTopic(topics: DuckDuckGoTopic[] = []): DuckDuckGoTopic | nu
   }
 
   return null;
+}
+
+function getGeminiModel() {
+  return process.env.GEMINI_MODEL || "gemini-2.5-flash";
+}
+
+function extractJsonObject(value: string) {
+  const trimmed = value.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+
+  return trimmed;
+}
+
+function extractGeminiText(response: GeminiInteractionResponse) {
+  if (response.output_text) return response.output_text;
+
+  for (const step of response.steps ?? []) {
+    if (step.type !== "model_output") continue;
+    const block = step.content?.find((content) => content.type === "text" && content.text);
+    if (block?.text) return block.text;
+  }
+
+  return "";
+}
+
+function extractGeminiCitation(response: GeminiInteractionResponse) {
+  for (const step of response.steps ?? []) {
+    if (step.type !== "model_output") continue;
+
+    for (const block of step.content ?? []) {
+      const citation = block.annotations?.find((annotation) => annotation.type === "url_citation" && annotation.url);
+      if (citation?.url) {
+        return {
+          sourceName: citation.title ? `Gemini Search: ${citation.title}` : "Gemini Search",
+          sourceUrl: citation.url
+        };
+      }
+    }
+  }
+
+  return {
+    sourceName: "Gemini Search"
+  };
+}
+
+function buildGeminiPrompt(query: string) {
+  return [
+    `Search the public internet for the commercial product "${query}".`,
+    "Return only JSON. Do not wrap the JSON in prose.",
+    "The JSON object must have these string fields:",
+    "productName, productDescription, materialComposition, intendedUse, brand, model, category.",
+    "Write productDescription for customs and shipping operations, not marketing. Include what the product is, what it is used for, key materials/components if available, and what facts still need confirmation for customs.",
+    "If a fact is uncertain, say that it needs confirmation instead of inventing exact specifications."
+  ].join("\n");
+}
+
+async function searchWithGemini(query: string): Promise<QuickFindItem | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey
+    },
+    body: JSON.stringify({
+      model: getGeminiModel(),
+      input: buildGeminiPrompt(query),
+      tools: [{ type: "google_search" }]
+    }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(12000)
+  });
+
+  if (!response.ok) return null;
+
+  const payload = (await response.json()) as GeminiInteractionResponse;
+  const text = extractGeminiText(payload);
+  if (!text) return null;
+
+  const parsed = JSON.parse(extractJsonObject(text)) as GeminiProductPayload;
+  const description = optionalClean(parsed.productDescription);
+  if (!description) return null;
+
+  const category = optionalClean(parsed.category) ?? inferCategory(query, description);
+  const citation = extractGeminiCitation(payload);
+
+  return {
+    productName: optionalClean(parsed.productName) ?? query,
+    productDescription: buildDescription(query, description, category),
+    materialComposition: optionalClean(parsed.materialComposition) ?? inferMaterial(query, description),
+    intendedUse: optionalClean(parsed.intendedUse) ?? inferUse(category),
+    brand: optionalClean(parsed.brand) ?? inferBrand(query),
+    model: optionalClean(parsed.model) ?? query,
+    category,
+    sourceName: citation.sourceName,
+    sourceUrl: citation.sourceUrl,
+    confidence: "ai_search"
+  };
 }
 
 function inferBrand(query: string) {
@@ -141,6 +284,13 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
 
   if (cleanQuery.length < 3) {
     throw new Error("Type at least 3 characters to quick-find an item.");
+  }
+
+  try {
+    const geminiResult = await searchWithGemini(cleanQuery);
+    if (geminiResult) return geminiResult;
+  } catch {
+    // Fall through to lightweight public lookup and deterministic inference.
   }
 
   let internetResult: Awaited<ReturnType<typeof searchDuckDuckGo>> = null;

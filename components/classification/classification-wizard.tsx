@@ -409,7 +409,7 @@ export function ClassificationWizard() {
                       ) : null}
                       {quickFindStatus === "success" && quickFindItem ? (
                         <p className="font-medium text-emerald-700">
-                          Applied {quickFindItem.confidence === "internet" ? "internet result" : "inferred item profile"} from {quickFindItem.sourceName}
+                          Applied {quickFindItem.confidence === "ai_search" ? "AI internet research" : quickFindItem.confidence === "internet" ? "internet result" : "inferred item profile"} from {quickFindItem.sourceName}
                           {quickFindItem.sourceUrl ? (
                             <a href={quickFindItem.sourceUrl} target="_blank" rel="noreferrer" className="ml-1 underline">
                               source

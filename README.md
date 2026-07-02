@@ -45,6 +45,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 AI_PROVIDER=mock
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
 NEXT_PUBLIC_POSTHOG_KEY=
 POSTHOG_HOST=
 SENTRY_DSN=
@@ -56,7 +58,7 @@ UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 ```
 
-Use `AI_PROVIDER=mock`, `openai`, or `anthropic`. If `AI_PROVIDER=openai` is selected without `OPENAI_API_KEY`, or `AI_PROVIDER=anthropic` is selected without `ANTHROPIC_API_KEY`, TariffOS throws a clear setup error. Missing optional services such as PostHog, Sentry, Resend, Stripe, and Upstash do not break the MVP.
+Use `AI_PROVIDER=mock`, `openai`, or `anthropic`. If `AI_PROVIDER=openai` is selected without `OPENAI_API_KEY`, or `AI_PROVIDER=anthropic` is selected without `ANTHROPIC_API_KEY`, TariffOS throws a clear setup error. `GEMINI_API_KEY` is optional and powers the quick item detector's AI internet research; without it, quick find falls back to lightweight public lookup and deterministic inference. Missing optional services such as PostHog, Sentry, Resend, Stripe, and Upstash do not break the MVP.
 
 ## Running TariffOS for Free
 
@@ -70,8 +72,9 @@ TariffOS is designed for a zero-burn founder workflow:
 6. Set `AI_PROVIDER=mock`.
 7. Deploy to the Vercel free tier.
 8. Do not add OpenAI or Anthropic keys until you are ready for paid AI usage.
-9. Optional: add PostHog, Sentry, Resend, Stripe, or Upstash later when the feature needs it.
-10. Free tiers have limits and may change; the app is built so missing optional services disable only that feature.
+9. Optional: add `GEMINI_API_KEY` when quick item detector should use Gemini Search grounding.
+10. Optional: add PostHog, Sentry, Resend, Stripe, or Upstash later when the feature needs it.
+11. Free tiers have limits and may change; the app is built so missing optional services disable only that feature.
 
 The MVP uses free-first defaults:
 

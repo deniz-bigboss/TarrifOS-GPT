@@ -52,6 +52,8 @@ Optional paid/upgrade variables:
 ```text
 OPENAI_API_KEY
 ANTHROPIC_API_KEY
+GEMINI_API_KEY
+GEMINI_MODEL=gemini-2.5-flash
 NEXT_PUBLIC_POSTHOG_KEY
 POSTHOG_HOST
 SENTRY_DSN
@@ -77,3 +79,5 @@ http://localhost:3000/**
 ## Current Free-First Mode
 
 Use `AI_PROVIDER=mock` for launch. This avoids OpenAI/Anthropic spend while the product is validated.
+
+`GEMINI_API_KEY` is optional. When present, the quick item detector uses Gemini with Google Search grounding to research product facts before filling the locked product fields. Without it, quick find still works through fallback public lookup and deterministic inference.
