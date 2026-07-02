@@ -139,6 +139,66 @@ function getGeminiModel() {
   return clean(process.env.GEMINI_MODEL || "gemini-2.5-flash");
 }
 
+function petFoodSpecies(query: string, summary = "") {
+  const text = normalizeSearchText(`${query} ${summary}`);
+  if (/\b(cat|cats|kitten|kittens|feline)\b/.test(text)) return "cat";
+  if (/\b(dog|dogs|puppy|puppies|canine)\b/.test(text)) return "dog";
+  return "pet";
+}
+
+function isPetFoodText(query: string, summary = "") {
+  const text = normalizeSearchText(`${query} ${summary}`);
+  const hasAnimal = /\b(cat|cats|kitten|kittens|feline|dog|dogs|puppy|puppies|canine|pet|pets)\b/.test(text);
+  const hasFood = /\b(food|feed|kibble|treat|treats|meal|diet|dry|wet|sterilised|sterilized)\b/.test(text);
+
+  return hasAnimal && hasFood;
+}
+
+function petFoodCategory(query: string, summary = "") {
+  const species = petFoodSpecies(query, summary);
+  if (species === "cat") return "cat food / pet food";
+  if (species === "dog") return "dog food / pet food";
+  return "pet food / animal feed";
+}
+
+function petFoodUse(query: string, summary = "") {
+  const species = petFoodSpecies(query, summary);
+  if (species === "cat") return "animal feed for cats";
+  if (species === "dog") return "animal feed for dogs";
+  return "animal feed for pets";
+}
+
+function petFoodMaterial(query: string, summary = "") {
+  const species = petFoodSpecies(query, summary);
+  const animalLabel = species === "pet" ? "target animal species" : `${species} formulation`;
+
+  return `prepared animal feed ingredients such as meat or poultry derivatives, cereals or plant proteins, fats/oils, minerals, vitamins, additives, and retail packaging; confirm exact ingredient list, net weight, ${animalLabel}, nutritional additives, and country of origin`;
+}
+
+function sanitizeIntendedUseForQuery(query: string, summary: string, category: string, intendedUse?: string) {
+  if (!isPetFoodText(`${query} ${category}`, summary)) return intendedUse;
+
+  if (!intendedUse || /\bhuman consumption\b/i.test(intendedUse)) {
+    return petFoodUse(`${query} ${category}`, summary);
+  }
+
+  return intendedUse;
+}
+
+function explicitPackageWeightKg(query: string, summary = "") {
+  const text = `${query} ${summary}`.replace(",", ".");
+  const match = text.match(/\b(\d+(?:\.\d+)?)\s*(kg|kilograms?|g|grams?)\b/i);
+  if (!match) return undefined;
+
+  const value = Number(match[1]);
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+
+  const unit = match[2]?.toLowerCase() ?? "kg";
+  const kilograms = unit.startsWith("g") ? value / 1000 : value;
+
+  return Math.round(kilograms * 1000) / 1000;
+}
+
 const CURATED_PRODUCTS: CuratedProduct[] = [
   {
     match: (q) => /(?:s\s*works|specialized).*tarmac|tarmac.*(?:s\s*works|specialized)|tarmac\s*sl\s*\d/.test(q),
@@ -687,6 +747,7 @@ function inferBrand(query: string) {
   if (normalized.includes("sony")) return "Sony";
   if (normalized.includes("canon")) return "Canon";
   if (normalized.includes("nikon")) return "Nikon";
+  if (normalized.includes("purina")) return "Purina";
   if (normalized.includes("lego")) return "LEGO";
   if (normalized.includes("dyson")) return "Dyson";
   if (normalized.includes("anker")) return "Anker";
@@ -717,6 +778,7 @@ function findCuratedProduct(query: string) {
 function inferCategory(query: string, summary: string) {
   const text = normalizeSearchText(`${query} ${summary}`);
 
+  if (isPetFoodText(query, summary)) return petFoodCategory(query, summary);
   if (/\b(g\s*shock|shock resistant watch|shock resistant wristwatch)\b/.test(text)) return "shock-resistant wristwatch";
   if (/\b(wristwatch|watch|timepiece|digital watch|analog watch|quartz|f\s*91w)\b/.test(text)) return "digital wristwatch";
   if (/\b(bike|bicycle|frameset|tarmac|road cycling)\b/.test(text)) return "bicycle";
@@ -748,6 +810,7 @@ function inferCategory(query: string, summary: string) {
 function inferMaterial(query: string, summary: string) {
   const text = normalizeSearchText(`${query} ${summary}`);
 
+  if (isPetFoodText(query, summary)) return petFoodMaterial(query, summary);
   if (/\b(wristwatch|watch|timepiece|digital watch|quartz|g\s*shock|f\s*91w)\b/.test(text)) {
     return "case/strap materials, electronic module, display, battery, and metal components need confirmation";
   }
@@ -786,6 +849,9 @@ function inferMaterial(query: string, summary: string) {
 }
 
 function inferUse(category: string) {
+  if (category === "cat food / pet food") return petFoodUse("cat food");
+  if (category === "dog food / pet food") return petFoodUse("dog food");
+  if (category === "pet food / animal feed") return petFoodUse("pet food");
   if (category === "shock-resistant wristwatch") return "timekeeping and consumer retail use for sport, outdoor, work, or everyday wear";
   if (category === "digital wristwatch") return "timekeeping and consumer retail use";
   if (category === "bicycle") return "road cycling, racing, or high-performance recreational use";
@@ -817,6 +883,9 @@ function inferUse(category: string) {
 
 function inferUnitWeight(category: string, query: string, summary: string) {
   const text = normalizeSearchText(`${query} ${summary}`);
+  const packageWeightKg = explicitPackageWeightKg(query, summary);
+
+  if (packageWeightKg) return packageWeightKg;
 
   if (category === "paper clips / office fasteners") return 0.001;
   if (category === "binder clips / office fasteners") return 0.006;
@@ -833,6 +902,7 @@ function inferUnitWeight(category: string, query: string, summary: string) {
   if (category === "audio electronics") return 0.35;
   if (category === "fragrance/cosmetics") return 0.25;
   if (category === "reusable adhesive putty") return 0.05;
+  if (category === "cat food / pet food" || category === "dog food / pet food" || category === "pet food / animal feed") return 1;
 
   return undefined;
 }
@@ -896,6 +966,7 @@ function buildGeminiPrompt(query: string) {
     "Interpret typos, model names, brand names, pack counts, and ordinary catalog wording.",
     "Use web evidence when possible. If no exact brand page exists, infer the product type from the wording instead of returning a generic product.",
     "The category must be a specific product type, never generic terms like commercial product or consumer product.",
+    "If the product is cat food, dog food, pet treats, or animal feed, category and intendedUse must clearly say animal feed/pet consumption and must not say human consumption.",
     "Write for customs/shipping operations, not marketing. Include what must be confirmed from the supplier when details are uncertain.",
     "Return only valid JSON with this shape:",
     "{\"productName\":\"specific item name\",\"productDescription\":\"customs/shipping description\",\"brand\":\"brand or empty string\",\"model\":\"model or variant or empty string\",\"category\":\"specific product type\",\"materialComposition\":\"materials/components to confirm\",\"intendedUse\":\"normal use\",\"unitWeightKg\":0.001}"
@@ -1022,6 +1093,8 @@ function geminiSource(payload: unknown) {
 }
 
 function specificCategory(value: string | undefined, query: string, summary: string) {
+  if (isPetFoodText(query, summary)) return petFoodCategory(query, summary);
+
   if (value && !/^(?:commercial product|consumer product|generic product|product|item)$/i.test(value)) {
     return value;
   }
@@ -1033,19 +1106,25 @@ function specificCategory(value: string | undefined, query: string, summary: str
 function quickFindFromGeminiPayload(query: string, payload: GeminiProductPayload, sourcePayload: unknown): QuickFindItem | null {
   const record = payload as Record<string, unknown>;
   const productName = optionalClean(record.productName ?? record.name ?? record.itemName) ?? query;
-  const summary = optionalClean(record.productDescription ?? record.description ?? record.summary);
-  if (!summary) return null;
+  const rawSummary = optionalClean(record.productDescription ?? record.description ?? record.summary);
+  if (!rawSummary) return null;
 
-  const category = specificCategory(optionalClean(record.category ?? record.productType), `${query} ${productName}`, summary);
+  const category = specificCategory(optionalClean(record.category ?? record.productType), `${query} ${productName}`, rawSummary);
+  const summary = isPetFoodText(`${query} ${productName} ${category}`, rawSummary)
+    ? rawSummary.replace(/\bhuman consumption\b/gi, "animal feed/pet consumption")
+    : rawSummary;
   const brand = optionalClean(record.brand) ?? inferBrand(`${productName} ${query} ${summary}`);
   const source = geminiSource(sourcePayload);
+  const intendedUse =
+    sanitizeIntendedUseForQuery(`${query} ${productName}`, summary, category, optionalClean(record.intendedUse ?? record.use)) ??
+    inferUse(category);
 
   return {
     productName,
     productDescription: buildDescription(productName, summary, category),
     materialComposition:
       optionalClean(record.materialComposition ?? record.materials) ?? inferMaterial(`${query} ${productName}`, summary),
-    intendedUse: optionalClean(record.intendedUse ?? record.use) ?? inferUse(category),
+    intendedUse,
     brand,
     model: optionalClean(record.model ?? record.variant) ?? inferModel(productName, brand),
     category,
