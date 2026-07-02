@@ -170,6 +170,34 @@ export const seedTariffCodes: TariffCodeRecord[] = [
     riskLevel: "medium"
   },
   {
+    id: "seed-910212",
+    code: "9102.12",
+    jurisdiction: "HS",
+    title: "Wrist-watches, electrically operated, with opto-electronic display only",
+    description: "Battery-powered digital wristwatches with LCD or other opto-electronic displays, including quartz digital watches.",
+    keywords: ["watch", "wristwatch", "digital watch", "quartz", "lcd", "timepiece", "casio", "f-91w", "g-shock", "battery powered"],
+    chapter: "91",
+    section: "Clocks and watches and parts thereof",
+    dutyRatePlaceholder: "Watch duty varies by destination, display type, case material, movement, and battery status.",
+    requiredDocuments: ["commercial invoice", "packing list", "certificate of origin", "technical specification", "battery declaration"],
+    restrictionNotes: ["Confirm battery type, whether batteries are installed, and any carrier documentation needed for battery-containing products."],
+    riskLevel: "medium"
+  },
+  {
+    id: "seed-910211",
+    code: "9102.11",
+    jurisdiction: "HS",
+    title: "Wrist-watches, electrically operated, with mechanical display only",
+    description: "Battery-powered wristwatches with mechanical/analog display only.",
+    keywords: ["watch", "wristwatch", "analog watch", "quartz", "timepiece", "battery powered", "mechanical display"],
+    chapter: "91",
+    section: "Clocks and watches and parts thereof",
+    dutyRatePlaceholder: "Watch duty varies by destination, movement, display, case material, and battery status.",
+    requiredDocuments: ["commercial invoice", "packing list", "certificate of origin", "technical specification", "battery declaration"],
+    restrictionNotes: ["Confirm display type, movement, case material, and installed battery status before filing."],
+    riskLevel: "medium"
+  },
+  {
     id: "seed-420221",
     code: "4202.21",
     jurisdiction: "HS",

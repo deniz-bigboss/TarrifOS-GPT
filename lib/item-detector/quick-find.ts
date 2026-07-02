@@ -24,6 +24,24 @@ type DuckDuckGoResponse = {
   RelatedTopics?: DuckDuckGoTopic[];
 };
 
+type WikipediaSearchResponse = {
+  query?: {
+    search?: Array<{
+      title?: string;
+    }>;
+  };
+};
+
+type WikipediaSummaryResponse = {
+  title?: string;
+  extract?: string;
+  content_urls?: {
+    desktop?: {
+      page?: string;
+    };
+  };
+};
+
 type GeminiCitation = {
   type?: string;
   url?: string;
@@ -49,6 +67,16 @@ type GeminiInteractionResponse = {
 type GeminiProductPayload = {
   productName?: string;
   productDescription?: string;
+  materialComposition?: string;
+  intendedUse?: string;
+  brand?: string;
+  model?: string;
+  category?: string;
+};
+
+type ProductProfile = {
+  productName?: string;
+  summary?: string;
   materialComposition?: string;
   intendedUse?: string;
   brand?: string;
@@ -184,22 +212,60 @@ async function searchWithGemini(query: string): Promise<QuickFindItem | null> {
 function inferBrand(query: string) {
   const normalized = query.toLowerCase();
 
+  if (normalized.includes("casio") || normalized.includes("g-shock") || normalized.includes("f-91w")) return "Casio";
   if (normalized.includes("s-works") || normalized.includes("tarmac")) return "Specialized";
   if (normalized.includes("iphone")) return "Apple";
   if (normalized.includes("galaxy")) return "Samsung";
   if (normalized.includes("thinkpad")) return "Lenovo";
   if (normalized.includes("macbook")) return "Apple";
   if (normalized.includes("air jordan")) return "Nike";
+  if (normalized.includes("seiko")) return "Seiko";
+  if (normalized.includes("rolex")) return "Rolex";
+  if (normalized.includes("citizen")) return "Citizen";
+  if (normalized.includes("garmin")) return "Garmin";
+  if (normalized.includes("sony")) return "Sony";
+  if (normalized.includes("canon")) return "Canon";
+  if (normalized.includes("nikon")) return "Nikon";
+  if (normalized.includes("lego")) return "LEGO";
 
   return query.split(/\s+/).slice(0, 2).join(" ");
+}
+
+function knownProductProfile(query: string, summary = ""): ProductProfile | null {
+  const text = `${query} ${summary}`.toLowerCase();
+
+  if (text.includes("casio") && /\bf-?91w\b/.test(text)) {
+    return {
+      productName: "Casio F-91W digital wristwatch",
+      summary:
+        "Casio F-91W is a quartz digital wristwatch with an LCD display, alarm, stopwatch, calendar functions, resin case/strap, and a small coin-cell battery. Confirm exact battery type, case/strap material, and whether batteries are installed for shipping documentation.",
+      materialComposition: "resin/plastic case and strap, electronic quartz module, LCD display, metal components, coin-cell battery; confirm exact bill of materials",
+      intendedUse: "digital wristwatch for timekeeping and consumer retail use",
+      brand: "Casio",
+      model: "F-91W",
+      category: "digital wristwatch"
+    };
+  }
+
+  return null;
 }
 
 function inferCategory(query: string, summary: string) {
   const text = `${query} ${summary}`.toLowerCase();
 
+  if (/\b(wristwatch|watch|timepiece|digital watch|analog watch|quartz|g-shock|f-?91w)\b/.test(text)) return "digital wristwatch";
   if (/\b(bike|bicycle|frameset|tarmac|road cycling)\b/.test(text)) return "bicycle";
   if (/\b(t-?shirt|shirt|hoodie|jacket|apparel|garment)\b/.test(text)) return "apparel";
   if (/\b(shoe|sneaker|boot|trainer)\b/.test(text)) return "footwear";
+  if (/\b(headphone|headphones|earbuds|earphone|speaker)\b/.test(text)) return "audio electronics";
+  if (/\b(camera|dslr|mirrorless|lens)\b/.test(text)) return "camera equipment";
+  if (/\b(toy|lego|doll|game set)\b/.test(text)) return "toy";
+  if (/\b(chair|table|desk|sofa|furniture)\b/.test(text)) return "furniture";
+  if (/\b(blender|toaster|coffee machine|kettle|vacuum)\b/.test(text)) return "household appliance";
+  if (/\b(backpack|bag|luggage|suitcase|case)\b/.test(text)) return "bags and luggage";
+  if (/\b(sunglasses|eyeglasses|spectacles|glasses)\b/.test(text)) return "eyewear";
+  if (/\b(jewelry|jewellery|ring|necklace|bracelet)\b/.test(text)) return "jewelry";
+  if (/\b(tire|tyre|brake|automotive|car part|vehicle part)\b/.test(text)) return "automotive part";
   if (/\b(phone|smartphone|iphone|galaxy)\b/.test(text)) return "consumer electronics";
   if (/\b(laptop|notebook|macbook|thinkpad)\b/.test(text)) return "computer";
   if (/\b(battery|lithium|power bank)\b/.test(text)) return "battery";
@@ -207,26 +273,42 @@ function inferCategory(query: string, summary: string) {
   if (/\b(food|snack|coffee|tea|chocolate)\b/.test(text)) return "food";
   if (/\b(medical|diagnostic|surgical|sterile)\b/.test(text)) return "medical";
 
-  return "consumer product";
+  return "product requiring category confirmation";
 }
 
 function inferMaterial(query: string, summary: string) {
   const text = `${query} ${summary}`.toLowerCase();
 
+  if (/\b(wristwatch|watch|timepiece|digital watch|quartz|g-shock|f-?91w)\b/.test(text)) {
+    return "case/strap materials, electronic module, display, battery, and metal components need confirmation";
+  }
   if (/\b(carbon|carbon fiber|carbon fibre)\b/.test(text)) return "carbon fiber composite; confirm exact bill of materials";
   if (/\b(cotton)\b/.test(text)) return "cotton; confirm percentage composition";
   if (/\b(leather)\b/.test(text)) return "leather; confirm genuine/synthetic composition";
   if (/\b(lithium|battery)\b/.test(text)) return "lithium battery chemistry; confirm Wh rating and UN38.3 status";
   if (/\b(aluminum|aluminium)\b/.test(text)) return "aluminum; confirm alloy and component breakdown";
   if (/\b(plastic|polycarbonate|abs)\b/.test(text)) return "plastic/polymer materials; confirm exact resin";
+  if (/\b(glass|mineral crystal|lens)\b/.test(text)) return "glass/mineral and frame/body materials need confirmation";
+  if (/\b(steel|stainless)\b/.test(text)) return "stainless steel and other metal components; confirm grade and composition";
+  if (/\b(wood)\b/.test(text)) return "wood components; confirm species, finish, and any composite materials";
 
   return "material composition needs confirmation";
 }
 
 function inferUse(category: string) {
+  if (category === "digital wristwatch") return "timekeeping and consumer retail use";
   if (category === "bicycle") return "road cycling, racing, or high-performance recreational use";
   if (category === "apparel") return "wearable apparel for retail sale";
   if (category === "footwear") return "footwear for retail sale";
+  if (category === "audio electronics") return "audio playback or communication use";
+  if (category === "camera equipment") return "photography, video, or imaging use";
+  if (category === "toy") return "children or hobby play/collectible use";
+  if (category === "furniture") return "household, office, or commercial furnishing use";
+  if (category === "household appliance") return "household or commercial appliance use";
+  if (category === "bags and luggage") return "storage, carrying, travel, or retail accessory use";
+  if (category === "eyewear") return "vision, sun protection, or fashion eyewear use";
+  if (category === "jewelry") return "personal adornment or fashion accessory use";
+  if (category === "automotive part") return "vehicle repair, maintenance, or assembly use";
   if (category === "consumer electronics") return "consumer electronic device use";
   if (category === "computer") return "portable computing use";
   if (category === "battery") return "portable power or equipment power source";
@@ -279,6 +361,55 @@ async function searchDuckDuckGo(query: string): Promise<{
   };
 }
 
+async function searchWikipedia(query: string): Promise<{
+  summary: string;
+  sourceName: string;
+  sourceUrl?: string;
+} | null> {
+  const searchUrl = new URL("https://en.wikipedia.org/w/api.php");
+  searchUrl.searchParams.set("action", "query");
+  searchUrl.searchParams.set("list", "search");
+  searchUrl.searchParams.set("srsearch", query);
+  searchUrl.searchParams.set("format", "json");
+
+  const searchResponse = await fetch(searchUrl, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "TariffOS quick item detector"
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(6000)
+  });
+
+  if (!searchResponse.ok) return null;
+
+  const searchPayload = (await searchResponse.json()) as WikipediaSearchResponse;
+  const title = searchPayload.query?.search?.[0]?.title;
+  if (!title) return null;
+
+  const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+  const summaryResponse = await fetch(summaryUrl, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "TariffOS quick item detector"
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(6000)
+  });
+
+  if (!summaryResponse.ok) return null;
+
+  const summaryPayload = (await summaryResponse.json()) as WikipediaSummaryResponse;
+  const summary = clean(summaryPayload.extract ?? "");
+  if (!summary) return null;
+
+  return {
+    summary,
+    sourceName: summaryPayload.title ? `Wikipedia: ${summaryPayload.title}` : "Wikipedia",
+    sourceUrl: summaryPayload.content_urls?.desktop?.page
+  };
+}
+
 export async function quickFindItem(query: string): Promise<QuickFindItem> {
   const cleanQuery = clean(query);
 
@@ -293,6 +424,14 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
     // Fall through to lightweight public lookup and deterministic inference.
   }
 
+  let wikipediaResult: Awaited<ReturnType<typeof searchWikipedia>> = null;
+
+  try {
+    wikipediaResult = await searchWikipedia(cleanQuery);
+  } catch {
+    wikipediaResult = null;
+  }
+
   let internetResult: Awaited<ReturnType<typeof searchDuckDuckGo>> = null;
 
   try {
@@ -301,20 +440,23 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
     internetResult = null;
   }
 
-  const summary = internetResult?.summary ?? "";
-  const category = inferCategory(cleanQuery, summary);
-  const brand = inferBrand(cleanQuery);
+  const summary = wikipediaResult?.summary ?? internetResult?.summary ?? "";
+  const profile = knownProductProfile(cleanQuery, summary);
+  const effectiveSummary = profile?.summary ?? summary;
+  const category = profile?.category ?? inferCategory(cleanQuery, effectiveSummary);
+  const brand = profile?.brand ?? inferBrand(cleanQuery);
+  const source = wikipediaResult ?? internetResult;
 
   return {
-    productName: cleanQuery,
-    productDescription: buildDescription(cleanQuery, summary, category),
-    materialComposition: inferMaterial(cleanQuery, summary),
-    intendedUse: inferUse(category),
+    productName: profile?.productName ?? cleanQuery,
+    productDescription: buildDescription(cleanQuery, effectiveSummary, category),
+    materialComposition: profile?.materialComposition ?? inferMaterial(cleanQuery, effectiveSummary),
+    intendedUse: profile?.intendedUse ?? inferUse(category),
     brand,
-    model: cleanQuery,
+    model: profile?.model ?? cleanQuery,
     category,
-    sourceName: internetResult?.sourceName ?? "TariffOS quick inference",
-    sourceUrl: internetResult?.sourceUrl,
-    confidence: internetResult ? "internet" : "inferred"
+    sourceName: source?.sourceName ?? "TariffOS quick inference",
+    sourceUrl: source?.sourceUrl,
+    confidence: source ? "internet" : "inferred"
   };
 }
