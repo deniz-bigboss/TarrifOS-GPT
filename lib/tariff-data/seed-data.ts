@@ -142,6 +142,34 @@ export const seedTariffCodes: TariffCodeRecord[] = [
     riskLevel: "low"
   },
   {
+    id: "seed-871200",
+    code: "8712.00",
+    jurisdiction: "HS",
+    title: "Bicycles and other cycles, not motorized",
+    description: "Complete non-motorized bicycles, including road, racing, mountain, and recreational cycles.",
+    keywords: ["bicycle", "bike", "cycle", "road bike", "racing bike", "tarmac", "s-works", "specialized", "complete bicycle"],
+    chapter: "87",
+    section: "Vehicles, aircraft, vessels and associated transport equipment",
+    dutyRatePlaceholder: "Bicycle duty varies by destination, origin, and whether the shipment is complete or parts.",
+    requiredDocuments: ["commercial invoice", "packing list", "certificate of origin", "technical specification"],
+    restrictionNotes: ["Confirm whether the item is a complete bicycle, electric bicycle, frameset, or spare part before filing."],
+    riskLevel: "medium"
+  },
+  {
+    id: "seed-871491",
+    code: "8714.91",
+    jurisdiction: "HS",
+    title: "Frames and forks, and parts thereof, for bicycles",
+    description: "Bicycle frames, forks, framesets, and related cycle parts shipped separately from a complete bicycle.",
+    keywords: ["frameset", "frame", "fork", "carbon frame", "carbon fiber", "carbon fibre", "tarmac", "s-works", "specialized", "bicycle part"],
+    chapter: "87",
+    section: "Vehicles, aircraft, vessels and associated transport equipment",
+    dutyRatePlaceholder: "Bicycle parts duty varies by destination and whether parts are assembled or shipped separately.",
+    requiredDocuments: ["commercial invoice", "packing list", "certificate of origin", "technical specification", "material declaration"],
+    restrictionNotes: ["Confirm complete-bike versus parts status and whether any electric assist, battery, or motor component is included."],
+    riskLevel: "medium"
+  },
+  {
     id: "seed-420221",
     code: "4202.21",
     jurisdiction: "HS",
