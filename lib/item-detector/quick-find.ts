@@ -227,6 +227,7 @@ function inferBrand(query: string) {
   if (normalized.includes("canon")) return "Canon";
   if (normalized.includes("nikon")) return "Nikon";
   if (normalized.includes("lego")) return "LEGO";
+  if (normalized.includes("dyson")) return "Dyson";
 
   return query.split(/\s+/).slice(0, 2).join(" ");
 }
@@ -247,6 +248,62 @@ function knownProductProfile(query: string, summary = ""): ProductProfile | null
     };
   }
 
+  if (/\b(sony\s+)?wh-?1000xm5\b/.test(text)) {
+    return {
+      productName: "Sony WH-1000XM5 wireless noise-canceling headphones",
+      summary:
+        "Sony WH-1000XM5 is a wireless over-ear noise-canceling headphone model used for audio playback and voice communication. It includes electronic audio components, microphones, Bluetooth radio hardware, ear cushions, a rechargeable lithium-ion battery, and charging/audio accessories depending on the retail configuration. Confirm battery rating, included cables/accessories, country of origin, and exact retail kit contents for customs and shipping documentation.",
+      materialComposition:
+        "plastic/polymer housing, electronic audio components, microphones, foam/synthetic leather ear cushions, metal fasteners, rechargeable lithium-ion battery; confirm exact bill of materials",
+      intendedUse: "wireless audio playback, noise cancellation, and voice communication for consumer use",
+      brand: "Sony",
+      model: "WH-1000XM5",
+      category: "audio electronics"
+    };
+  }
+
+  if (/\bcanon\b/.test(text) && /\beos\s*r50\b/.test(text)) {
+    return {
+      productName: "Canon EOS R50 mirrorless digital camera",
+      summary:
+        "Canon EOS R50 is an APS-C mirrorless interchangeable-lens digital camera body used for still photography and video recording. It contains an electronic camera body, image sensor, RF lens mount, LCD/viewfinder components, controls, memory-card interface, and a rechargeable battery; retail kits may also include a lens, charger, strap, and cables. Confirm whether the shipment is body-only or lens kit, exact accessories, battery rating, and country of origin.",
+      materialComposition:
+        "electronic camera body with image sensor, circuit boards, display components, metal/plastic housing, glass optical components if lens is included, rechargeable battery; confirm exact configuration",
+      intendedUse: "still photography and video recording",
+      brand: "Canon",
+      model: "EOS R50",
+      category: "camera equipment"
+    };
+  }
+
+  if (/\blego\b/.test(text) && /\btechnic\b/.test(text) && /\bbugatti\s+chiron\b/.test(text)) {
+    return {
+      productName: "LEGO Technic Bugatti Chiron construction toy set",
+      summary:
+        "LEGO Technic Bugatti Chiron is a construction toy/model set made of interlocking plastic building elements that assemble into a scale vehicle model. The product is used for hobby building, play, display, or collectible retail sale, and the shipment may include plastic pieces, rubber tires, paper instructions, stickers, and retail packaging. Confirm set number, piece count, age labeling, packaging configuration, and whether any electronic or battery-powered accessories are included.",
+      materialComposition:
+        "ABS plastic building elements, rubber tires, paper instructions/stickers, retail packaging; confirm whether any electronics or batteries are included",
+      intendedUse: "hobby construction toy, play item, display model, or collectible retail set",
+      brand: "LEGO",
+      model: "Technic Bugatti Chiron",
+      category: "toy"
+    };
+  }
+
+  if (/\bdyson\b/.test(text) && /\bv15\b/.test(text) && /\bdetect\b/.test(text)) {
+    return {
+      productName: "Dyson V15 Detect cordless vacuum cleaner",
+      summary:
+        "Dyson V15 Detect is a cordless stick vacuum cleaner used for household floor and surface cleaning. It contains an electric motor, cyclone/dust collection assembly, plastic housing, filters, powered cleaning heads or attachments depending on the kit, and a rechargeable lithium-ion battery pack. Confirm the exact kit, battery Wh rating, charger/accessories, filter contents, and country of origin for customs and dangerous-goods review.",
+      materialComposition:
+        "plastic/polymer housing, electric motor, electronic controls, filters, dust collection components, metal contacts/fasteners, rechargeable lithium-ion battery pack; confirm exact kit contents",
+      intendedUse: "cordless household vacuum cleaning",
+      brand: "Dyson",
+      model: "V15 Detect",
+      category: "household appliance"
+    };
+  }
+
   return null;
 }
 
@@ -259,9 +316,9 @@ function inferCategory(query: string, summary: string) {
   if (/\b(shoe|sneaker|boot|trainer)\b/.test(text)) return "footwear";
   if (/\b(headphone|headphones|earbuds|earphone|speaker)\b/.test(text)) return "audio electronics";
   if (/\b(camera|dslr|mirrorless|lens)\b/.test(text)) return "camera equipment";
-  if (/\b(toy|lego|doll|game set)\b/.test(text)) return "toy";
+  if (/\b(toy|lego|technic|construction set|building set|doll|game set)\b/.test(text)) return "toy";
   if (/\b(chair|table|desk|sofa|furniture)\b/.test(text)) return "furniture";
-  if (/\b(blender|toaster|coffee machine|kettle|vacuum)\b/.test(text)) return "household appliance";
+  if (/\b(blender|toaster|coffee machine|kettle|vacuum|cordless cleaner|stick vacuum|dyson)\b/.test(text)) return "household appliance";
   if (/\b(backpack|bag|luggage|suitcase|case)\b/.test(text)) return "bags and luggage";
   if (/\b(sunglasses|eyeglasses|spectacles|glasses)\b/.test(text)) return "eyewear";
   if (/\b(jewelry|jewellery|ring|necklace|bracelet)\b/.test(text)) return "jewelry";
@@ -281,6 +338,15 @@ function inferMaterial(query: string, summary: string) {
 
   if (/\b(wristwatch|watch|timepiece|digital watch|quartz|g-shock|f-?91w)\b/.test(text)) {
     return "case/strap materials, electronic module, display, battery, and metal components need confirmation";
+  }
+  if (/\b(headphone|headphones|earbuds|earphone|speaker)\b/.test(text)) {
+    return "plastic/polymer housings, electronic audio components, cables/accessories, and any rechargeable battery need confirmation";
+  }
+  if (/\b(toy|lego|technic|construction set|building set)\b/.test(text)) {
+    return "plastic building/toy components, packaging, and any rubber/electronic accessories need confirmation";
+  }
+  if (/\b(vacuum|cordless cleaner|stick vacuum|dyson)\b/.test(text)) {
+    return "plastic/polymer housing, electric motor, filters, accessories, and rechargeable battery details need confirmation";
   }
   if (/\b(carbon|carbon fiber|carbon fibre)\b/.test(text)) return "carbon fiber composite; confirm exact bill of materials";
   if (/\b(cotton)\b/.test(text)) return "cotton; confirm percentage composition";
@@ -446,6 +512,7 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
   const category = profile?.category ?? inferCategory(cleanQuery, effectiveSummary);
   const brand = profile?.brand ?? inferBrand(cleanQuery);
   const source = wikipediaResult ?? internetResult;
+  const sourceName = profile ? "TariffOS product profile" : source?.sourceName ?? "TariffOS quick inference";
 
   return {
     productName: profile?.productName ?? cleanQuery,
@@ -455,8 +522,8 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
     brand,
     model: profile?.model ?? cleanQuery,
     category,
-    sourceName: source?.sourceName ?? "TariffOS quick inference",
-    sourceUrl: source?.sourceUrl,
-    confidence: source ? "internet" : "inferred"
+    sourceName,
+    sourceUrl: profile ? undefined : source?.sourceUrl,
+    confidence: profile || !source ? "inferred" : "internet"
   };
 }
