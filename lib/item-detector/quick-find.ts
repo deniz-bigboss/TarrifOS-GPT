@@ -6,6 +6,7 @@ export type QuickFindItem = {
   brand?: string;
   model?: string;
   category?: string;
+  unitWeightKg?: number;
   sourceName: string;
   sourceUrl?: string;
   confidence: "ai_search" | "internet" | "inferred";
@@ -50,6 +51,7 @@ type ProductProfile = {
   brand?: string;
   model?: string;
   category?: string;
+  unitWeightKg?: number;
   sourceName?: string;
 };
 
@@ -755,6 +757,28 @@ function inferUse(category: string) {
   return "commercial/consumer use; confirm intended use";
 }
 
+function inferUnitWeight(category: string, query: string, summary: string) {
+  const text = normalizeSearchText(`${query} ${summary}`);
+
+  if (category === "paper clips / office fasteners") return 0.001;
+  if (category === "binder clips / office fasteners") return 0.006;
+  if (category === "staples / office fasteners") return 0.001;
+  if (category === "rubber bands / office supplies") return 0.002;
+  if (category === "paper stationery" || category === "paper stationery / filing supplies") return 0.05;
+  if (category === "writing instruments") return 0.012;
+  if (category === "stationery erasers") return 0.02;
+  if (category === "paper/plastic adhesive labels") return 0.02;
+  if (category === "insulated electric cables") return text.includes("1m") ? 0.04 : 0.08;
+  if (category === "mechanical pencil lead refills") return 0.01;
+  if (category === "digital wristwatch" || category === "shock-resistant wristwatch") return 0.08;
+  if (category === "smartphone") return 0.22;
+  if (category === "audio electronics") return 0.35;
+  if (category === "fragrance/cosmetics") return 0.25;
+  if (category === "reusable adhesive putty") return 0.05;
+
+  return undefined;
+}
+
 function buildDescription(query: string, summary: string, category: string) {
   const base = summary
     ? clean(summary)
@@ -801,6 +825,7 @@ function quickFindFromProfile(query: string, profile: ProductProfile): QuickFind
     brand,
     model: profile.model ?? inferModel(query, brand),
     category,
+    unitWeightKg: profile.unitWeightKg ?? inferUnitWeight(category, query, summary),
     sourceName: profile.sourceName ?? "TariffOS free curated profile",
     confidence: "inferred"
   };
@@ -945,6 +970,7 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
     brand,
     model: inferModel(cleanQuery, brand),
     category,
+    unitWeightKg: inferUnitWeight(category, cleanQuery, summary),
     sourceName: source?.sourceName ?? "TariffOS free inference",
     sourceUrl: source?.sourceUrl,
     confidence: source ? "internet" : "inferred"

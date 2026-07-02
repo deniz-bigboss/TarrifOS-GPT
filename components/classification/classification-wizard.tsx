@@ -21,9 +21,30 @@ const steps = [
   { label: "Agent brief", description: "Ready for planning", icon: ClipboardCheck }
 ];
 type WizardField = keyof ProductInputPayload;
-type QuickFindStatus = "idle" | "loading" | "success" | "error";
+type QuickFindStatus = "idle" | "loading" | "success" | "not_found" | "error";
 
 const defaultValues: ProductInputPayload = {
+  productName: "",
+  productDescription: "",
+  materialComposition: "",
+  intendedUse: "",
+  brand: "",
+  model: "",
+  sku: "",
+  category: "",
+  supplierCountry: "TR",
+  originCountry: "TR",
+  destinationCountry: "DE",
+  importOrExport: "import",
+  declaredValue: 1200,
+  currency: "EUR",
+  quantity: 100,
+  unitWeight: 0.18,
+  shippingMethod: "road freight",
+  documents: []
+};
+
+const demoTshirt: Partial<ProductInputPayload> = {
   productName: "Men's short-sleeve knitted t-shirt",
   productDescription: "100% cotton knitted short-sleeve t-shirt for retail apparel sale",
   materialComposition: "100% cotton",
@@ -40,8 +61,27 @@ const defaultValues: ProductInputPayload = {
   currency: "EUR",
   quantity: 100,
   unitWeight: 0.18,
-  shippingMethod: "road freight",
-  documents: []
+  shippingMethod: "road freight"
+};
+
+const demoBattery: Partial<ProductInputPayload> = {
+  productName: "Rechargeable lithium-ion battery pack for e-bike",
+  productDescription: "Rechargeable lithium-ion battery pack designed for electric bicycles",
+  materialComposition: "lithium-ion cells, plastic housing",
+  intendedUse: "e-bike power supply",
+  brand: "",
+  model: "",
+  sku: "EBIKE-BATTERY-001",
+  category: "battery/power bank",
+  supplierCountry: "CN",
+  originCountry: "CN",
+  destinationCountry: "GB",
+  importOrExport: "import",
+  declaredValue: 8000,
+  currency: "GBP",
+  quantity: 100,
+  unitWeight: 2.8,
+  shippingMethod: "air freight"
 };
 
 const stepFields: WizardField[][] = [
@@ -79,6 +119,8 @@ export function ClassificationWizard() {
   const [quickFindStatus, setQuickFindStatus] = useState<QuickFindStatus>("idle");
   const [quickFindError, setQuickFindError] = useState<string | null>(null);
   const [quickFindItem, setQuickFindItem] = useState<QuickFindItem | null>(null);
+  const [quickFindConfirmed, setQuickFindConfirmed] = useState(false);
+  const [showConfirmNudge, setShowConfirmNudge] = useState(false);
   const form = useForm<ProductInputPayload>({
     resolver: zodResolver(productInputSchema),
     defaultValues
@@ -101,7 +143,7 @@ export function ClassificationWizard() {
     { label: "Quantity", value: reviewValues.quantity ? String(reviewValues.quantity) : "Not set" },
     { label: "Documents", value: documents.length ? `${documents.length} attached` : "None attached" }
   ];
-  const productFieldsLocked = quickFindEnabled;
+  const productFieldsLocked = quickFindEnabled && (quickFindStatus === "idle" || quickFindStatus === "loading");
   const lockedFieldProps = productFieldsLocked
     ? {
         readOnly: true,
@@ -119,6 +161,9 @@ export function ClassificationWizard() {
     setValue("brand", item.brand ?? "", { shouldDirty: true });
     setValue("model", item.model ?? "", { shouldDirty: true });
     setValue("sku", "", { shouldDirty: true });
+    if (item.unitWeightKg != null) {
+      setValue("unitWeight", item.unitWeightKg, { shouldDirty: true, shouldValidate: true });
+    }
   }, [setValue]);
 
   const runQuickFind = useCallback(async (query: string, signal?: AbortSignal) => {
@@ -128,12 +173,15 @@ export function ClassificationWizard() {
       setQuickFindStatus("idle");
       setQuickFindError(null);
       setQuickFindItem(null);
-      setValue("productName", trimmed, { shouldDirty: true, shouldValidate: true });
+      setQuickFindConfirmed(false);
+      setShowConfirmNudge(false);
       return;
     }
 
     setQuickFindStatus("loading");
     setQuickFindError(null);
+    setQuickFindConfirmed(false);
+    setShowConfirmNudge(false);
 
     let response: Response;
     try {
@@ -160,24 +208,28 @@ export function ClassificationWizard() {
     }
 
     if (!response.ok || !payload.item) {
-      setQuickFindStatus("error");
+      setQuickFindStatus(response.status === 404 ? "not_found" : "error");
       setQuickFindError(payload.error ?? `Quick item lookup failed with status ${response.status}.`);
       return;
     }
 
     setQuickFindItem(payload.item);
     setQuickFindStatus("success");
+    setQuickFindConfirmed(false);
+    setShowConfirmNudge(false);
     applyQuickFindItem(payload.item);
     await trigger(productFields);
-  }, [applyQuickFindItem, setValue, trigger]);
+  }, [applyQuickFindItem, trigger]);
 
   function toggleQuickFind(enabled: boolean) {
     setQuickFindEnabled(enabled);
     setServerError(null);
+    setQuickFindConfirmed(false);
+    setShowConfirmNudge(false);
 
     if (enabled) {
       const currentName = getValues("productName");
-      const initialQuery = currentName === defaultValues.productName ? "" : currentName;
+      const initialQuery = currentName.trim();
       setQuickFindQuery(initialQuery);
       setQuickFindStatus(initialQuery.trim().length >= 3 ? "loading" : "idle");
       setQuickFindError(null);
@@ -188,6 +240,7 @@ export function ClassificationWizard() {
     setQuickFindStatus("idle");
     setQuickFindError(null);
     setQuickFindItem(null);
+    setQuickFindQuery("");
   }
 
   useEffect(() => {
@@ -203,6 +256,13 @@ export function ClassificationWizard() {
       controller.abort();
     };
   }, [quickFindEnabled, quickFindQuery, runQuickFind]);
+
+  function loadDemo(values: Partial<ProductInputPayload>) {
+    if (quickFindEnabled) toggleQuickFind(false);
+    Object.entries(values).forEach(([field, value]) => {
+      setValue(field as WizardField, value as never, { shouldDirty: true, shouldValidate: true });
+    });
+  }
 
   async function onSubmit(values: ProductInputPayload) {
     setServerError(null);
@@ -261,6 +321,12 @@ export function ClassificationWizard() {
 
       if (quickFindStatus === "loading") {
         setServerError("Quick item detector is still searching. Wait for the item to apply before continuing.");
+        return;
+      }
+
+      if (quickFindStatus === "success" && !quickFindConfirmed) {
+        setShowConfirmNudge(true);
+        setServerError("Review the filled product fields and confirm they are correct before continuing.");
         return;
       }
     }
@@ -352,6 +418,26 @@ export function ClassificationWizard() {
               </div>
             </CardHeader>
             <CardContent className="p-6">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-slate-500">Prefill a demo:</span>
+                <button
+                  type="button"
+                  onClick={() => loadDemo(demoTshirt)}
+                  className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Cotton t-shirt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadDemo(demoBattery)}
+                  className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  E-bike battery
+                </button>
+              </div>
+
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-start gap-3">
@@ -360,7 +446,7 @@ export function ClassificationWizard() {
                     </span>
                     <div>
                       <h3 className="text-sm font-semibold text-slate-950">Quick item detector</h3>
-                      <p className="mt-1 text-sm leading-6 text-slate-600">Online lookup fills and locks the product fields.</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">Lookup fills the product fields, then unlocks them for review.</p>
                     </div>
                   </div>
                   <button
@@ -408,20 +494,46 @@ export function ClassificationWizard() {
                         </p>
                       ) : null}
                       {quickFindStatus === "success" && quickFindItem ? (
-                        <p className="font-medium text-emerald-700">
-                          Applied {quickFindItem.confidence === "ai_search" ? "AI internet research" : quickFindItem.confidence === "internet" ? "internet result" : "inferred item profile"} from {quickFindItem.sourceName}
-                          {quickFindItem.sourceUrl ? (
-                            <a href={quickFindItem.sourceUrl} target="_blank" rel="noreferrer" className="ml-1 underline">
-                              source
-                            </a>
+                        <div className="space-y-2">
+                          <p className="font-medium text-emerald-700">
+                            Applied {quickFindItem.confidence === "ai_search" ? "AI internet research" : quickFindItem.confidence === "internet" ? "internet result" : "inferred item profile"} from {quickFindItem.sourceName}
+                            {quickFindItem.sourceUrl ? (
+                              <a href={quickFindItem.sourceUrl} target="_blank" rel="noreferrer" className="ml-1 underline">
+                                source
+                              </a>
+                            ) : null}
+                          </p>
+                          <label className="flex items-start gap-2 text-sm text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={quickFindConfirmed}
+                              onChange={(event) => {
+                                setQuickFindConfirmed(event.target.checked);
+                                if (event.target.checked) {
+                                  setShowConfirmNudge(false);
+                                  setServerError(null);
+                                }
+                              }}
+                              className="mt-1 h-4 w-4 rounded border-slate-300"
+                            />
+                            <span>The fields below are editable now. I reviewed the filled details and they are ready to continue.</span>
+                          </label>
+                          {showConfirmNudge && !quickFindConfirmed ? (
+                            <p className="flex items-center gap-1.5 text-xs font-semibold text-red-700">
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              Confirm the filled fields before continuing.
+                            </p>
                           ) : null}
-                        </p>
+                        </div>
                       ) : null}
                       {quickFindStatus === "error" ? (
                         <p className="font-medium text-red-700">{quickFindError}</p>
                       ) : null}
+                      {quickFindStatus === "not_found" ? (
+                        <p className="font-medium text-amber-700">{quickFindError ?? "No confident match. Edit the product fields manually."}</p>
+                      ) : null}
                       {quickFindStatus === "idle" ? (
-                        <p className="text-slate-500">Product fields are locked while detector mode is active.</p>
+                        <p className="text-slate-500">Product fields stay locked while detector mode is waiting for a search.</p>
                       ) : null}
                     </div>
                   </div>
