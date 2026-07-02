@@ -43,6 +43,20 @@ type WikipediaSummaryResponse = {
   };
 };
 
+type GeminiProductPayload = {
+  productName?: string | null;
+  productDescription?: string | null;
+  productType?: string | null;
+  category?: string | null;
+  materialComposition?: string | null;
+  materials?: string | null;
+  intendedUse?: string | null;
+  brand?: string | null;
+  model?: string | null;
+  unitWeightKg?: number | string | null;
+  unitWeight?: number | string | null;
+};
+
 type ProductProfile = {
   productName?: string;
   summary?: string;
@@ -79,6 +93,50 @@ function normalizeSearchText(value: string) {
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function optionalClean(value: unknown) {
+  if (typeof value !== "string") return undefined;
+
+  const result = clean(value);
+  if (!result || /^(?:unknown|n\/a|none|null|not applicable)$/i.test(result)) return undefined;
+
+  return result;
+}
+
+function optionalPositiveNumber(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? Math.round(value * 1000) / 1000 : undefined;
+  }
+
+  if (typeof value !== "string") return undefined;
+
+  const match = value.replace(",", ".").match(/\d+(?:\.\d+)?/);
+  if (!match) return undefined;
+
+  const parsed = Number(match[0]);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+
+  const normalized = value.toLowerCase();
+  const kilograms = /\bmg\b|milligram/.test(normalized)
+    ? parsed / 1_000_000
+    : /\b(?:g|gram|grams)\b/.test(normalized) && !/\bkg\b|kilogram/.test(normalized)
+      ? parsed / 1000
+      : parsed;
+
+  return kilograms > 0 ? Math.round(kilograms * 1000) / 1000 : undefined;
+}
+
+function getGeminiApiKey() {
+  return clean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "");
+}
+
+function getGeminiModel() {
+  return clean(process.env.GEMINI_MODEL || "gemini-2.5-flash");
 }
 
 const CURATED_PRODUCTS: CuratedProduct[] = [
@@ -831,6 +889,249 @@ function quickFindFromProfile(query: string, profile: ProductProfile): QuickFind
   };
 }
 
+function buildGeminiPrompt(query: string) {
+  return [
+    "You are filling a customs and shipping product profile for a business user.",
+    `Search the public internet for this exact product or catalog text: "${query}".`,
+    "Interpret typos, model names, brand names, pack counts, and ordinary catalog wording.",
+    "Use web evidence when possible. If no exact brand page exists, infer the product type from the wording instead of returning a generic product.",
+    "The category must be a specific product type, never generic terms like commercial product or consumer product.",
+    "Write for customs/shipping operations, not marketing. Include what must be confirmed from the supplier when details are uncertain.",
+    "Return only valid JSON with this shape:",
+    "{\"productName\":\"specific item name\",\"productDescription\":\"customs/shipping description\",\"brand\":\"brand or empty string\",\"model\":\"model or variant or empty string\",\"category\":\"specific product type\",\"materialComposition\":\"materials/components to confirm\",\"intendedUse\":\"normal use\",\"unitWeightKg\":0.001}"
+  ].join("\n");
+}
+
+function extractJsonObject(text: string) {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1] ?? text;
+  const start = fenced.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < fenced.length; index += 1) {
+    const char = fenced[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\" && inString) {
+      escaped = true;
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return fenced.slice(start, index + 1);
+    }
+  }
+
+  return null;
+}
+
+function collectGeminiText(value: unknown, depth = 0): string[] {
+  if (depth > 8) return [];
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectGeminiText(item, depth + 1));
+  }
+
+  if (!isRecord(value)) return [];
+
+  const pieces: string[] = [];
+
+  for (const [key, child] of Object.entries(value)) {
+    if ((key === "text" || key === "output_text" || key === "outputText") && typeof child === "string") {
+      const text = clean(child);
+      if (text) pieces.push(text);
+      continue;
+    }
+
+    pieces.push(...collectGeminiText(child, depth + 1));
+  }
+
+  return pieces;
+}
+
+function extractGeminiText(payload: unknown) {
+  const pieces = collectGeminiText(payload);
+  return pieces.find((piece) => piece.includes("{") && piece.includes("}")) ?? pieces[0] ?? "";
+}
+
+function parseGeminiProductPayload(text: string): GeminiProductPayload | null {
+  const json = extractJsonObject(text);
+  if (!json) return null;
+
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    return isRecord(parsed) ? (parsed as GeminiProductPayload) : null;
+  } catch {
+    return null;
+  }
+}
+
+function firstGeminiCitation(value: unknown, depth = 0): { sourceName?: string; sourceUrl: string } | null {
+  if (depth > 8) return null;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const citation = firstGeminiCitation(item, depth + 1);
+      if (citation) return citation;
+    }
+
+    return null;
+  }
+
+  if (!isRecord(value)) return null;
+
+  const url = optionalClean(value.url) ?? optionalClean(value.uri);
+  if (url && /^https?:\/\//i.test(url)) {
+    return {
+      sourceName: optionalClean(value.title) ?? optionalClean(value.sourceName),
+      sourceUrl: url
+    };
+  }
+
+  for (const child of Object.values(value)) {
+    const citation = firstGeminiCitation(child, depth + 1);
+    if (citation) return citation;
+  }
+
+  return null;
+}
+
+function geminiSource(payload: unknown) {
+  const citation = firstGeminiCitation(payload);
+
+  return {
+    sourceName: citation?.sourceName ? `Gemini source: ${citation.sourceName}` : "Gemini 2.5 Flash Search",
+    sourceUrl: citation?.sourceUrl
+  };
+}
+
+function specificCategory(value: string | undefined, query: string, summary: string) {
+  if (value && !/^(?:commercial product|consumer product|generic product|product|item)$/i.test(value)) {
+    return value;
+  }
+
+  const inferred = inferCategory(query, summary);
+  return inferred === "commercial product" && value ? value : inferred;
+}
+
+function quickFindFromGeminiPayload(query: string, payload: GeminiProductPayload, sourcePayload: unknown): QuickFindItem | null {
+  const record = payload as Record<string, unknown>;
+  const productName = optionalClean(record.productName ?? record.name ?? record.itemName) ?? query;
+  const summary = optionalClean(record.productDescription ?? record.description ?? record.summary);
+  if (!summary) return null;
+
+  const category = specificCategory(optionalClean(record.category ?? record.productType), `${query} ${productName}`, summary);
+  const brand = optionalClean(record.brand) ?? inferBrand(`${productName} ${query} ${summary}`);
+  const source = geminiSource(sourcePayload);
+
+  return {
+    productName,
+    productDescription: buildDescription(productName, summary, category),
+    materialComposition:
+      optionalClean(record.materialComposition ?? record.materials) ?? inferMaterial(`${query} ${productName}`, summary),
+    intendedUse: optionalClean(record.intendedUse ?? record.use) ?? inferUse(category),
+    brand,
+    model: optionalClean(record.model ?? record.variant) ?? inferModel(productName, brand),
+    category,
+    unitWeightKg:
+      optionalPositiveNumber(record.unitWeightKg ?? record.unitWeight ?? record.weightKg) ??
+      inferUnitWeight(category, `${query} ${productName}`, summary),
+    sourceName: source.sourceName,
+    sourceUrl: source.sourceUrl,
+    confidence: "ai_search"
+  };
+}
+
+async function requestGeminiInteraction(prompt: string, apiKey: string) {
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey
+    },
+    body: JSON.stringify({
+      model: getGeminiModel(),
+      input: prompt,
+      tools: [{ type: "google_search" }]
+    }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(12000)
+  });
+
+  return response.ok ? ((await response.json()) as unknown) : null;
+}
+
+async function requestGeminiGenerateContent(prompt: string, apiKey: string) {
+  const model = getGeminiModel();
+  const modelPath = model.startsWith("models/") ? model : `models/${model}`;
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }]
+          }
+        ],
+        tools: [{ google_search: {} }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 1024
+        }
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000)
+    }
+  );
+
+  return response.ok ? ((await response.json()) as unknown) : null;
+}
+
+async function searchGemini(query: string): Promise<QuickFindItem | null> {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) return null;
+
+  const prompt = buildGeminiPrompt(query);
+  const requests = [requestGeminiInteraction, requestGeminiGenerateContent];
+
+  for (const request of requests) {
+    try {
+      const responsePayload = await request(prompt, apiKey);
+      if (!responsePayload) continue;
+
+      const text = extractGeminiText(responsePayload);
+      const productPayload = text ? parseGeminiProductPayload(text) : null;
+      const item = productPayload ? quickFindFromGeminiPayload(query, productPayload, responsePayload) : null;
+      if (item) return item;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
 async function searchDuckDuckGo(query: string): Promise<{
   summary: string;
   sourceName: string;
@@ -919,6 +1220,13 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
 
   if (cleanQuery.length < 3) {
     throw new Error("Type at least 3 characters to quick-find an item.");
+  }
+
+  try {
+    const geminiResult = await searchGemini(cleanQuery);
+    if (geminiResult) return geminiResult;
+  } catch {
+    // Existing free lookup path remains available when Gemini is not configured, quota-limited, or unreachable.
   }
 
   const directProfile = findCuratedProduct(cleanQuery);
