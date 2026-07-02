@@ -123,6 +123,20 @@ const CURATED_PRODUCTS: CuratedProduct[] = [
     }
   },
   {
+    match: (q) =>
+      /(?:tombow|taombow|tombo).*mono.*lead|mono.*(?:pencil\s*)?lead|(?:tombow|taombow|tombo).*pencil.*lead/.test(q),
+    profile: {
+      productName: "Tombow MONO mechanical pencil lead refill",
+      summary:
+        "Tombow MONO lead is a refill product for mechanical pencils, supplied as thin graphite/polymer pencil leads in a small plastic dispenser for writing, drawing, drafting, school, office, or art use. Confirm exact lead diameter, hardness grade, lead count, color, retail pack configuration, and whether the shipment contains only refills or includes a pencil body.",
+      materialComposition: "graphite/carbon pencil lead with clay or polymer binder, plastic dispenser/case, label, and retail packaging; confirm exact grade, diameter, and pack count",
+      intendedUse: "refill leads for mechanical pencils used in writing, drawing, drafting, school, office, or art work",
+      brand: "Tombow",
+      model: "MONO Lead",
+      category: "mechanical pencil lead refills"
+    }
+  },
+  {
     match: (q) => /\byves\s+rocher\b/.test(q) && q.includes("cuir") && q.includes("vetiver"),
     profile: {
       productName: "Yves Rocher Cuir Vetiver fragrance",
@@ -283,6 +297,7 @@ function inferBrand(query: string) {
   if (normalized.includes("casio") || normalized.includes("g shock") || normalized.includes("f 91w")) return "Casio";
   if (normalized.includes("faber castell")) return "Faber-Castell";
   if (normalized.includes("yves rocher")) return "Yves Rocher";
+  if (normalized.includes("tombow") || normalized.includes("taombow") || normalized.includes("tombo")) return "Tombow";
   if (normalized.includes("s works") || normalized.includes("tarmac")) return "Specialized";
   if (normalized.includes("iphone") || normalized.includes("macbook") || normalized.includes("airpods")) return "Apple";
   if (normalized.includes("galaxy") || normalized.includes("samsung")) return "Samsung";
@@ -331,8 +346,9 @@ function inferCategory(query: string, summary: string) {
   if (/\b(t\s*shirt|shirt|hoodie|jacket|apparel|garment|sweater|fleece)\b/.test(text)) return "apparel";
   if (/\b(shoe|sneaker|boot|trainer)\b/.test(text)) return "footwear";
   if (/\b(tack\s*it|blu tack|poster putty|adhesive putty|sticky tack|mounting putty|pressure sensitive adhesive)\b/.test(text)) return "reusable adhesive putty";
+  if (/\b(mechanical pencil lead|pencil lead|lead refill|graphite lead|mono lead|pencil leads)\b/.test(text)) return "mechanical pencil lead refills";
   if (/\b(perfume|fragrance|parfum|eau de parfum|eau de toilette|cologne|vetiver|scent)\b/.test(text)) return "fragrance/cosmetics";
-  if (/\b(pen|pencil|marker|highlighter|eraser|notebook|stationery|office supply|art supply)\b/.test(text)) return "stationery";
+  if (/\b(pen|pencil|marker|highlighter|eraser|stationery|office supply|art supply|drafting|drawing supply)\b/.test(text)) return "stationery";
   if (/\b(headphone|headphones|earbuds|earphone|speaker|airpods)\b/.test(text)) return "audio electronics";
   if (/\b(camera|dslr|mirrorless|lens)\b/.test(text)) return "camera equipment";
   if (/\b(toy|lego|technic|construction set|building set|doll|game set)\b/.test(text)) return "toy";
@@ -360,6 +376,9 @@ function inferMaterial(query: string, summary: string) {
   }
   if (/\b(tack\s*it|blu tack|poster putty|adhesive putty|sticky tack|mounting putty|pressure sensitive adhesive)\b/.test(text)) {
     return "synthetic rubber/putty adhesive compound, fillers/plasticizers, and retail packaging; confirm SDS composition";
+  }
+  if (/\b(mechanical pencil lead|pencil lead|lead refill|graphite lead|mono lead|pencil leads)\b/.test(text)) {
+    return "graphite/carbon lead with clay or polymer binder plus plastic refill dispenser and retail packaging; confirm lead diameter, hardness grade, color, and pack count";
   }
   if (/\b(perfume|fragrance|parfum|eau de parfum|eau de toilette|cologne|vetiver|scent)\b/.test(text)) {
     return "alcohol-based fragrance liquid, water, aromatic compounds, glass bottle, spray pump, cap, and paperboard packaging; confirm exact ingredients, alcohol percentage, and volume";
@@ -396,6 +415,7 @@ function inferUse(category: string) {
   if (category === "apparel") return "wearable apparel for retail sale";
   if (category === "footwear") return "footwear for retail sale";
   if (category === "reusable adhesive putty") return "temporary mounting of lightweight paper, posters, notes, photos, or craft materials";
+  if (category === "mechanical pencil lead refills") return "refill leads for mechanical pencils used in writing, drawing, drafting, school, office, or art work";
   if (category === "fragrance/cosmetics") return "personal fragrance or cosmetic use";
   if (category === "stationery") return "writing, drawing, school, office, or craft use";
   if (category === "audio electronics") return "audio playback or communication use";
