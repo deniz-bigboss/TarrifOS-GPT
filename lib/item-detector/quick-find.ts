@@ -50,11 +50,21 @@ type ProductProfile = {
   brand?: string;
   model?: string;
   category?: string;
+  sourceName?: string;
 };
 
 type CuratedProduct = {
   match: (queryLower: string) => boolean;
   profile: ProductProfile;
+};
+
+type ProductTypeRule = {
+  queryPattern: RegExp;
+  productType: string;
+  category: string;
+  description: string;
+  materialComposition: string;
+  intendedUse: string;
 };
 
 function clean(value: string) {
@@ -281,11 +291,318 @@ const CURATED_PRODUCTS: CuratedProduct[] = [
   }
 ];
 
+const PRODUCT_TYPE_RULES: ProductTypeRule[] = [
+  {
+    queryPattern: /\bpaper\s*clips?\b/i,
+    productType: "paper clips",
+    category: "paper clips / office fasteners",
+    description: "are small office fasteners used to temporarily hold sheets of paper together, normally supplied loose or boxed in retail/office packaging",
+    materialComposition: "formed steel wire, commonly galvanized, nickel-plated, vinyl-coated, or otherwise coated, plus paperboard/plastic retail packaging; confirm exact coating and pack count",
+    intendedUse: "temporary fastening and organization of paper documents in office, school, retail, or administrative use"
+  },
+  {
+    queryPattern: /\bbinder\s*clips?\b|\bfoldback\s*clips?\b/i,
+    productType: "binder clips",
+    category: "binder clips / office fasteners",
+    description: "are reusable office fasteners with spring metal clip bodies and foldable wire handles for holding stacks of paper or documents",
+    materialComposition: "painted or coated spring steel clip body, steel wire handles, and retail packaging; confirm exact size, finish, and pack count",
+    intendedUse: "temporary fastening, grouping, and organizing of paper documents in office, school, or business use"
+  },
+  {
+    queryPattern: /\bstaples?\b|\bstaple\s*refills?\b/i,
+    productType: "staples",
+    category: "staples / office fasteners",
+    description: "are metal wire fasteners supplied in strips or boxes for use with staplers to bind sheets of paper or light materials",
+    materialComposition: "steel wire staples, usually galvanized or coated, with paperboard/plastic packaging; confirm staple size, leg length, coating, and pack count",
+    intendedUse: "binding paper documents or light office materials using a stapler"
+  },
+  {
+    queryPattern: /\brubber\s*bands?\b|\belastic\s*bands?\b/i,
+    productType: "rubber bands",
+    category: "rubber bands / office supplies",
+    description: "are elastic bands used to bundle, secure, or group small items, papers, packages, or office materials",
+    materialComposition: "natural rubber, synthetic rubber, or elastomer bands with retail packaging; confirm exact material, size, color, and pack count",
+    intendedUse: "bundling, securing, or organizing papers, small goods, and office materials"
+  },
+  {
+    queryPattern: /\benvelopes?\b|\bmailing\s*envelopes?\b/i,
+    productType: "envelopes",
+    category: "paper stationery",
+    description: "are paper or paperboard stationery articles used for mailing, filing, or enclosing documents and lightweight goods",
+    materialComposition: "paper or paperboard envelope body, adhesive seal or closure, optional plastic window, and retail packaging; confirm size, window, closure, and pack count",
+    intendedUse: "mailing, filing, or enclosing documents and lightweight stationery items"
+  },
+  {
+    queryPattern: /\bfile\s*folders?\b|\bfolders?\b|\bdocument\s*folders?\b/i,
+    productType: "file folders",
+    category: "paper stationery / filing supplies",
+    description: "are folders used to store, organize, or transport documents in office, school, archive, or business workflows",
+    materialComposition: "paper, paperboard, plastic, polypropylene, or manila folder material with labels/tabs and packaging; confirm exact material and pack count",
+    intendedUse: "document storage, filing, organization, and office administration"
+  },
+  {
+    queryPattern: /\bnotebooks?\b|\bwriting\s*pads?\b|\bnotepads?\b|\bspiral\s*notebooks?\b/i,
+    productType: "notebooks",
+    category: "paper stationery",
+    description: "are bound or padded paper stationery products used for writing, notes, school work, office work, or record keeping",
+    materialComposition: "paper sheets, paperboard cover, binding wire/glue/staples if present, labels, and retail packaging; confirm page count, size, ruling, cover material, and binding",
+    intendedUse: "writing, note-taking, school, office, or administrative record keeping"
+  },
+  {
+    queryPattern: /\bsticky\s*notes?\b|\bpost\s*it\s*notes?\b|\badhesive\s*notes?\b/i,
+    productType: "sticky notes",
+    category: "paper stationery",
+    description: "are small paper note sheets with a low-tack adhesive strip for temporary attachment to documents, desks, walls, or other surfaces",
+    materialComposition: "paper note sheets with pressure-sensitive adhesive strip and retail packaging; confirm sheet size, color, sheet count, and adhesive composition if required",
+    intendedUse: "temporary notes, reminders, marking, and office or school organization"
+  },
+  {
+    queryPattern: /\bballpoint\s*pens?\b|\bgel\s*pens?\b|\bpens?\b/i,
+    productType: "pens",
+    category: "writing instruments",
+    description: "are writing instruments using ink cartridges or reservoirs for handwriting, office, school, retail, or promotional use",
+    materialComposition: "plastic or metal pen body, ink reservoir/cartridge, ball or nib components, grips/clips, and packaging; confirm ink type, refillability, and pack count",
+    intendedUse: "handwriting, drawing, marking, school, office, or retail stationery use"
+  },
+  {
+    queryPattern: /\bcolored\s*pencils?\b|\bcolour\s*pencils?\b|\bwooden\s*pencils?\b|\bpencils?\b/i,
+    productType: "pencils",
+    category: "writing instruments",
+    description: "are writing or drawing instruments with graphite or colored cores held in wood, plastic, or mechanical bodies",
+    materialComposition: "wood/plastic body, graphite or pigment core, ferrule/eraser if present, paint/coating, and retail packaging; confirm exact pencil type and pack count",
+    intendedUse: "writing, drawing, sketching, school, office, or art use"
+  },
+  {
+    queryPattern: /\berasers?\b|\brubbers?\b/i,
+    productType: "erasers",
+    category: "stationery erasers",
+    description: "are stationery items used to remove pencil marks or similar writing/drawing marks from paper",
+    materialComposition: "synthetic rubber, vinyl/PVC-free polymer, plastic, or elastomer eraser material plus sleeve/retail packaging; confirm exact compound and pack count",
+    intendedUse: "erasing pencil or graphite marks in school, office, drafting, or art use"
+  },
+  {
+    queryPattern: /\bmarkers?\b|\bhighlighters?\b/i,
+    productType: "markers",
+    category: "writing instruments",
+    description: "are writing or marking instruments containing ink and a felt/fiber tip for highlighting, labeling, writing, or drawing",
+    materialComposition: "plastic marker body, cap, fiber/felt tip, ink reservoir, ink, and retail packaging; confirm ink type, color, and pack count",
+    intendedUse: "writing, highlighting, labeling, marking, school, office, or art use"
+  },
+  {
+    queryPattern: /\bpacking\s*tape\b|\bmasking\s*tape\b|\badhesive\s*tape\b|\btape\s*rolls?\b|\btape\b/i,
+    productType: "adhesive tape",
+    category: "adhesive tape",
+    description: "is a roll or strip product with backing material and pressure-sensitive adhesive used for sealing, mounting, masking, repair, or packaging",
+    materialComposition: "plastic film, paper, cloth, or other backing with pressure-sensitive adhesive and core/retail packaging; confirm backing material, adhesive type, roll length/width, and pack count",
+    intendedUse: "sealing, packaging, mounting, masking, repair, or general office/household adhesive use"
+  },
+  {
+    queryPattern: /\blabels?\b|\bsticker\s*labels?\b|\bshipping\s*labels?\b/i,
+    productType: "labels",
+    category: "paper/plastic adhesive labels",
+    description: "are adhesive label sheets or rolls used for addressing, identification, shipping, pricing, filing, or product marking",
+    materialComposition: "paper or plastic label face stock, pressure-sensitive adhesive, release liner, and packaging; confirm label material, adhesive type, sheet/roll format, and count",
+    intendedUse: "addressing, identification, shipping, filing, pricing, or product labeling"
+  },
+  {
+    queryPattern: /\bscissors?\b/i,
+    productType: "scissors",
+    category: "hand tools / stationery scissors",
+    description: "are hand-operated cutting tools with paired metal blades and handles for cutting paper, packaging, fabric, or light materials",
+    materialComposition: "stainless steel or steel blades, plastic/rubber/metal handles, pivot screw, and retail packaging; confirm blade material, size, and intended material",
+    intendedUse: "manual cutting of paper, packaging, fabric, or light office/school materials"
+  },
+  {
+    queryPattern: /\brulers?\b|\bmeasuring\s*rulers?\b/i,
+    productType: "rulers",
+    category: "measuring stationery",
+    description: "are straight measuring instruments used for drawing lines and measuring short distances in school, office, drafting, or craft work",
+    materialComposition: "plastic, wood, aluminum, steel, or composite ruler material with printed/etched markings and packaging; confirm length and material",
+    intendedUse: "measuring and drawing straight lines in school, office, drafting, or craft use"
+  },
+  {
+    queryPattern: /\busb\s*(?:charging\s*|data\s*)?cables?\b|\bcharging\s*cables?\b|\bdata\s*cables?\b/i,
+    productType: "USB data cables",
+    category: "insulated electric cables",
+    description: "are insulated electrical cables with connectors used for charging, data transfer, or connection of electronic devices",
+    materialComposition: "copper conductors, plastic insulation/jacket, metal connector contacts/shells, and packaging; confirm connector types, length, voltage/current rating, and whether any electronics are built in",
+    intendedUse: "charging, data transfer, or electronic device connection"
+  },
+  {
+    queryPattern: /\baa\s*batteries?\b|\baaa\s*batteries?\b|\bbutton\s*cells?\b|\bcoin\s*cells?\b|\bbatteries?\b/i,
+    productType: "batteries",
+    category: "batteries",
+    description: "are portable electrochemical cells or battery packs used to power consumer devices, electronics, toys, tools, or accessories",
+    materialComposition: "battery cells with metal casing, terminals, separator/electrolyte chemistry, and packaging; confirm chemistry, voltage, capacity, Wh rating, quantity, and dangerous-goods documentation",
+    intendedUse: "portable electrical power source for consumer or commercial devices"
+  },
+  {
+    queryPattern: /\bphone\s*cases?\b|\bmobile\s*phone\s*cases?\b|\bprotective\s*cases?\b/i,
+    productType: "phone cases",
+    category: "protective phone cases",
+    description: "are protective accessories fitted around mobile phones to reduce scratches, impact, or handling wear",
+    materialComposition: "plastic, TPU, silicone, leather, textile, metal, or composite case material plus packaging; confirm exact material, phone compatibility, and whether magnets/electronics are included",
+    intendedUse: "protective accessory for mobile phones"
+  }
+];
+
 function firstRelatedTopic(topics: DuckDuckGoTopic[] = []): DuckDuckGoTopic | null {
   for (const topic of topics) {
     if (topic.Text) return topic;
     const nested = firstRelatedTopic(topic.Topics ?? []);
     if (nested) return nested;
+  }
+
+  return null;
+}
+
+const CATALOG_DESCRIPTOR_WORDS = new Set([
+  "small",
+  "medium",
+  "large",
+  "mini",
+  "jumbo",
+  "standard",
+  "assorted",
+  "colored",
+  "colour",
+  "clear",
+  "white",
+  "black",
+  "blue",
+  "red",
+  "green",
+  "metal",
+  "plastic",
+  "steel",
+  "office",
+  "school",
+  "stationery",
+  "usb",
+  "charging",
+  "data",
+  "pack",
+  "box",
+  "set",
+  "size",
+  "no",
+  "number"
+]);
+
+const CATALOG_PRODUCT_WORDS = new Set([
+  "paper",
+  "clip",
+  "clips",
+  "binder",
+  "staple",
+  "staples",
+  "rubber",
+  "band",
+  "bands",
+  "envelope",
+  "envelopes",
+  "folder",
+  "folders",
+  "notebook",
+  "notebooks",
+  "pad",
+  "pads",
+  "pen",
+  "pens",
+  "pencil",
+  "pencils",
+  "eraser",
+  "erasers",
+  "marker",
+  "markers",
+  "tape",
+  "label",
+  "labels",
+  "scissors",
+  "ruler",
+  "rulers",
+  "cable",
+  "cables",
+  "usb",
+  "charging",
+  "data",
+  "battery",
+  "batteries",
+  "case",
+  "cases"
+]);
+
+function toDisplayWords(value: string) {
+  return clean(value)
+    .split(/\s+/)
+    .map((word) => {
+      const upper = word.toUpperCase();
+      if (["USB", "AA", "AAA", "PVC", "TPU"].includes(upper)) return upper;
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+function cleanCatalogDetails(value: string) {
+  return clean(value.replace(/^[\s,;:./#()_-]+|[\s,;:./#()_-]+$/g, ""));
+}
+
+function extractCatalogBrand(prefix: string) {
+  const cleaned = cleanCatalogDetails(prefix);
+  if (!cleaned) return undefined;
+
+  const tokens = normalizeSearchText(cleaned).split(" ").filter(Boolean);
+  if (!tokens.length || tokens.length > 3) return undefined;
+  if (tokens.every((token) => CATALOG_DESCRIPTOR_WORDS.has(token))) return undefined;
+  if (tokens.some((token) => CATALOG_PRODUCT_WORDS.has(token))) return undefined;
+
+  return toDisplayWords(cleaned);
+}
+
+function extractPackDetail(details: string) {
+  return details.match(/\b\d+\s*(?:pcs?|pieces?|count|ct|pack|packs|pk|units?|sheets?|rolls?|pairs?)\b/i)?.[0];
+}
+
+function buildCatalogDetailSentence(details: string) {
+  const cleaned = cleanCatalogDetails(details);
+  if (!cleaned) return "";
+
+  const packDetail = extractPackDetail(cleaned);
+  const variant = packDetail ? cleanCatalogDetails(cleaned.replace(packDetail, "")) : cleaned;
+  const parts = [];
+
+  if (variant) parts.push(`variant/size text "${variant}"`);
+  if (packDetail) parts.push(`pack quantity "${packDetail}"`);
+
+  return parts.length ? `The search text indicates ${parts.join(" and ")}.` : `The search text includes "${cleaned}".`;
+}
+
+function findCatalogProductProfile(query: string): ProductProfile | null {
+  const cleanQuery = clean(query);
+
+  for (const rule of PRODUCT_TYPE_RULES) {
+    const match = rule.queryPattern.exec(cleanQuery);
+    if (!match || match.index === undefined) continue;
+
+    const before = cleanCatalogDetails(cleanQuery.slice(0, match.index));
+    const after = cleanCatalogDetails(cleanQuery.slice(match.index + match[0].length));
+    const brand = extractCatalogBrand(before);
+    const leadingDetails = brand ? "" : before;
+    const details = cleanCatalogDetails([leadingDetails, after].filter(Boolean).join(" "));
+    const productTypeName = toDisplayWords(rule.productType);
+    const productName = clean([brand, productTypeName, details].filter(Boolean).join(" "));
+    const detailSentence = buildCatalogDetailSentence(details);
+
+    return {
+      productName,
+      summary: `${productName} ${rule.description}. ${detailSentence} Confirm exact brand, material/coating, dimensions, size or variant, unit count, retail packaging, country of origin, and whether the goods are packed as loose units, refills, or a boxed set.`,
+      materialComposition: rule.materialComposition,
+      intendedUse: rule.intendedUse,
+      brand,
+      model: details ? `${productTypeName} ${details}` : productTypeName,
+      category: rule.category,
+      sourceName: "TariffOS catalog inference"
+    };
   }
 
   return null;
@@ -474,7 +791,7 @@ function isRelevantLookup(query: string, result: { summary: string; sourceName: 
 function quickFindFromProfile(query: string, profile: ProductProfile): QuickFindItem {
   const summary = profile.summary ?? "";
   const category = profile.category ?? inferCategory(query, summary);
-  const brand = profile.brand ?? inferBrand(query);
+  const brand = profile.brand ?? (profile.sourceName === "TariffOS catalog inference" ? "" : inferBrand(query));
 
   return {
     productName: profile.productName ?? query,
@@ -484,7 +801,7 @@ function quickFindFromProfile(query: string, profile: ProductProfile): QuickFind
     brand,
     model: profile.model ?? inferModel(query, brand),
     category,
-    sourceName: "TariffOS free curated profile",
+    sourceName: profile.sourceName ?? "TariffOS free curated profile",
     confidence: "inferred"
   };
 }
@@ -584,6 +901,11 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
     return quickFindFromProfile(cleanQuery, directProfile);
   }
 
+  const catalogProfile = findCatalogProductProfile(cleanQuery);
+  if (catalogProfile) {
+    return quickFindFromProfile(cleanQuery, catalogProfile);
+  }
+
   let wikipediaResult: Awaited<ReturnType<typeof searchWikipedia>> = null;
 
   try {
@@ -605,6 +927,11 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
   const sourceProfile = findCuratedProduct(`${cleanQuery} ${summary}`);
   if (sourceProfile) {
     return quickFindFromProfile(cleanQuery, sourceProfile);
+  }
+
+  const sourceCatalogProfile = findCatalogProductProfile(`${cleanQuery} ${summary}`);
+  if (sourceCatalogProfile) {
+    return quickFindFromProfile(cleanQuery, sourceCatalogProfile);
   }
 
   const category = inferCategory(cleanQuery, summary);
