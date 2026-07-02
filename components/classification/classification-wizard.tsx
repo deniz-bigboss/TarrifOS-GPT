@@ -440,7 +440,7 @@ export function ClassificationWizard() {
                 <FieldError message={errors.productName?.message} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">Product type</Label>
                 <Input id="category" {...register("category")} {...lockedFieldProps} />
               </div>
               <div className="space-y-2 md:col-span-2">

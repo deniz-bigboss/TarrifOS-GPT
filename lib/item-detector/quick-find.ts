@@ -92,6 +92,14 @@ function optionalClean(value: unknown) {
   return typeof value === "string" && value.trim() ? clean(value) : undefined;
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function firstRelatedTopic(topics: DuckDuckGoTopic[] = []): DuckDuckGoTopic | null {
   for (const topic of topics) {
     if (topic.Text) return topic;
@@ -210,10 +218,12 @@ async function searchWithGemini(query: string): Promise<QuickFindItem | null> {
 }
 
 function inferBrand(query: string) {
-  const normalized = query.toLowerCase();
+  const normalized = normalizeSearchText(query);
 
-  if (normalized.includes("casio") || normalized.includes("g-shock") || normalized.includes("f-91w")) return "Casio";
-  if (normalized.includes("s-works") || normalized.includes("tarmac")) return "Specialized";
+  if (normalized.includes("casio") || normalized.includes("g shock") || normalized.includes("f 91w")) return "Casio";
+  if (normalized.includes("faber castell")) return "Faber-Castell";
+  if (normalized.includes("yves rocher")) return "Yves Rocher";
+  if (normalized.includes("s works") || normalized.includes("tarmac")) return "Specialized";
   if (normalized.includes("iphone")) return "Apple";
   if (normalized.includes("galaxy")) return "Samsung";
   if (normalized.includes("thinkpad")) return "Lenovo";
@@ -232,10 +242,23 @@ function inferBrand(query: string) {
   return query.split(/\s+/).slice(0, 2).join(" ");
 }
 
-function knownProductProfile(query: string, summary = ""): ProductProfile | null {
-  const text = `${query} ${summary}`.toLowerCase();
+function inferModel(query: string, brand: string) {
+  const normalizedBrand = normalizeSearchText(brand);
+  const normalizedQuery = normalizeSearchText(query);
 
-  if (text.includes("casio") && /\bf-?91w\b/.test(text)) {
+  if (!normalizedBrand || !normalizedQuery.startsWith(normalizedBrand)) {
+    return query;
+  }
+
+  const brandWords = normalizedBrand.split(" ").length;
+  const words = query.trim().split(/\s+/);
+  return words.slice(brandWords).join(" ") || query;
+}
+
+function knownProductProfile(query: string, summary = ""): ProductProfile | null {
+  const text = normalizeSearchText(`${query} ${summary}`);
+
+  if (text.includes("casio") && /\bf\s*91w\b/.test(text)) {
     return {
       productName: "Casio F-91W digital wristwatch",
       summary:
@@ -248,7 +271,21 @@ function knownProductProfile(query: string, summary = ""): ProductProfile | null
     };
   }
 
-  if (/\b(sony\s+)?wh-?1000xm5\b/.test(text)) {
+  if (text.includes("casio") && /\bg\s*shock\b/.test(text)) {
+    return {
+      productName: "Casio G-Shock shock-resistant wristwatch",
+      summary:
+        "Casio G-Shock is a shock-resistant wristwatch line designed for sport, outdoor, work, and everyday timekeeping. Depending on the exact model it may use a digital, analog, or analog-digital quartz module, a resin or metal case, mineral glass, buttons, strap or bracelet, water-resistant construction, and a battery or solar/rechargeable power system. Confirm the exact G-Shock model number, display type, power source, case/strap material, battery status, and retail accessories for customs and shipping documentation.",
+      materialComposition:
+        "resin/plastic or metal case, mineral glass, electronic quartz module, strap or bracelet, buttons, seals, metal components, and battery or solar/rechargeable power system; confirm exact model bill of materials",
+      intendedUse: "shock-resistant wristwatch for timekeeping, sport, outdoor, work, or consumer retail use",
+      brand: "Casio",
+      model: "G-Shock",
+      category: "shock-resistant wristwatch"
+    };
+  }
+
+  if (/\b(sony\s+)?wh\s*1000xm5\b/.test(text)) {
     return {
       productName: "Sony WH-1000XM5 wireless noise-canceling headphones",
       summary:
@@ -259,6 +296,34 @@ function knownProductProfile(query: string, summary = ""): ProductProfile | null
       brand: "Sony",
       model: "WH-1000XM5",
       category: "audio electronics"
+    };
+  }
+
+  if (/\bfaber\s*castell\b/.test(text) && /\btack\s*it\b/.test(text)) {
+    return {
+      productName: "Faber-Castell Tack-It reusable adhesive putty",
+      summary:
+        "Faber-Castell Tack-It is a reusable pressure-sensitive adhesive putty used to temporarily mount lightweight items such as paper, posters, notes, photos, or small craft pieces on dry surfaces. It is handled as a stationery or office/craft adhesive product rather than a liquid glue, and the shipment may include putty strips or pads in retail packaging. Confirm the exact pack size, color, safety data sheet, chemical composition, and whether any restricted adhesive or solvent content is present.",
+      materialComposition:
+        "synthetic rubber/putty adhesive compound with fillers/plasticizers and retail packaging; confirm exact SDS composition and whether solvents or restricted chemicals are present",
+      intendedUse: "temporary mounting of lightweight paper, posters, notes, photos, and craft materials",
+      brand: "Faber-Castell",
+      model: "Tack-It",
+      category: "reusable adhesive putty"
+    };
+  }
+
+  if (/\byves\s+rocher\b/.test(text) && /\bcuir\b/.test(text) && /\bvetiver\b/.test(text)) {
+    return {
+      productName: "Yves Rocher Cuir Vetiver fragrance",
+      summary:
+        "Yves Rocher Cuir Vetiver is a personal fragrance product in the leather/vetiver scent family. For customs and shipping it should be treated as a cosmetic fragrance/perfumery product, commonly shipped as an alcohol-based liquid in a glass bottle with a spray pump, cap, and retail carton; exact concentration and size must be confirmed from the product label. Confirm whether it is eau de parfum or eau de toilette, the bottle volume, alcohol percentage, ingredients/allergens, SDS or dangerous-goods status, and retail packaging details.",
+      materialComposition:
+        "alcohol-based fragrance liquid, water, aromatic compounds/fragrance oils, glass bottle, plastic/metal spray pump, cap, and paperboard packaging; confirm exact ingredient list, alcohol percentage, and volume",
+      intendedUse: "personal fragrance/cosmetic use applied to the body",
+      brand: "Yves Rocher",
+      model: "Cuir Vetiver",
+      category: "fragrance/cosmetics"
     };
   }
 
@@ -308,12 +373,16 @@ function knownProductProfile(query: string, summary = ""): ProductProfile | null
 }
 
 function inferCategory(query: string, summary: string) {
-  const text = `${query} ${summary}`.toLowerCase();
+  const text = normalizeSearchText(`${query} ${summary}`);
 
-  if (/\b(wristwatch|watch|timepiece|digital watch|analog watch|quartz|g-shock|f-?91w)\b/.test(text)) return "digital wristwatch";
+  if (/\b(g\s*shock|shock resistant watch|shock resistant wristwatch)\b/.test(text)) return "shock-resistant wristwatch";
+  if (/\b(wristwatch|watch|timepiece|digital watch|analog watch|quartz|f\s*91w)\b/.test(text)) return "digital wristwatch";
   if (/\b(bike|bicycle|frameset|tarmac|road cycling)\b/.test(text)) return "bicycle";
   if (/\b(t-?shirt|shirt|hoodie|jacket|apparel|garment)\b/.test(text)) return "apparel";
   if (/\b(shoe|sneaker|boot|trainer)\b/.test(text)) return "footwear";
+  if (/\b(tack\s*it|blu tack|poster putty|adhesive putty|sticky tack|mounting putty|pressure sensitive adhesive)\b/.test(text)) return "reusable adhesive putty";
+  if (/\b(perfume|fragrance|parfum|eau de parfum|eau de toilette|cologne|vetiver|scent)\b/.test(text)) return "fragrance/cosmetics";
+  if (/\b(pen|pencil|marker|highlighter|eraser|notebook|stationery|office supply|art supply)\b/.test(text)) return "stationery";
   if (/\b(headphone|headphones|earbuds|earphone|speaker)\b/.test(text)) return "audio electronics";
   if (/\b(camera|dslr|mirrorless|lens)\b/.test(text)) return "camera equipment";
   if (/\b(toy|lego|technic|construction set|building set|doll|game set)\b/.test(text)) return "toy";
@@ -326,18 +395,27 @@ function inferCategory(query: string, summary: string) {
   if (/\b(phone|smartphone|iphone|galaxy)\b/.test(text)) return "consumer electronics";
   if (/\b(laptop|notebook|macbook|thinkpad)\b/.test(text)) return "computer";
   if (/\b(battery|lithium|power bank)\b/.test(text)) return "battery";
-  if (/\b(cosmetic|cream|serum|lotion|makeup)\b/.test(text)) return "cosmetics";
+  if (/\b(cosmetic|cream|serum|lotion|makeup|shampoo|soap)\b/.test(text)) return "cosmetics";
   if (/\b(food|snack|coffee|tea|chocolate)\b/.test(text)) return "food";
   if (/\b(medical|diagnostic|surgical|sterile)\b/.test(text)) return "medical";
 
-  return "product requiring category confirmation";
+  return "commercial product";
 }
 
 function inferMaterial(query: string, summary: string) {
-  const text = `${query} ${summary}`.toLowerCase();
+  const text = normalizeSearchText(`${query} ${summary}`);
 
-  if (/\b(wristwatch|watch|timepiece|digital watch|quartz|g-shock|f-?91w)\b/.test(text)) {
+  if (/\b(wristwatch|watch|timepiece|digital watch|quartz|g\s*shock|f\s*91w)\b/.test(text)) {
     return "case/strap materials, electronic module, display, battery, and metal components need confirmation";
+  }
+  if (/\b(tack\s*it|blu tack|poster putty|adhesive putty|sticky tack|mounting putty|pressure sensitive adhesive)\b/.test(text)) {
+    return "synthetic rubber/putty adhesive compound, fillers/plasticizers, and retail packaging; confirm SDS composition";
+  }
+  if (/\b(perfume|fragrance|parfum|eau de parfum|eau de toilette|cologne|vetiver|scent)\b/.test(text)) {
+    return "alcohol-based fragrance liquid, water, aromatic compounds, glass bottle, spray pump, cap, and paperboard packaging; confirm exact ingredients, alcohol percentage, and volume";
+  }
+  if (/\b(pen|pencil|marker|highlighter|eraser|notebook|stationery|office supply|art supply)\b/.test(text)) {
+    return "stationery materials such as plastic, wood, graphite/ink, rubber, paper, metal parts, and retail packaging; confirm exact item composition";
   }
   if (/\b(headphone|headphones|earbuds|earphone|speaker)\b/.test(text)) {
     return "plastic/polymer housings, electronic audio components, cables/accessories, and any rechargeable battery need confirmation";
@@ -358,14 +436,18 @@ function inferMaterial(query: string, summary: string) {
   if (/\b(steel|stainless)\b/.test(text)) return "stainless steel and other metal components; confirm grade and composition";
   if (/\b(wood)\b/.test(text)) return "wood components; confirm species, finish, and any composite materials";
 
-  return "material composition needs confirmation";
+  return "composition must be confirmed from supplier specifications, product label, photos, invoice, and packaging; check for batteries, liquids, chemicals, wood, leather, textile fiber content, or regulated components";
 }
 
 function inferUse(category: string) {
+  if (category === "shock-resistant wristwatch") return "timekeeping and consumer retail use for sport, outdoor, work, or everyday wear";
   if (category === "digital wristwatch") return "timekeeping and consumer retail use";
   if (category === "bicycle") return "road cycling, racing, or high-performance recreational use";
   if (category === "apparel") return "wearable apparel for retail sale";
   if (category === "footwear") return "footwear for retail sale";
+  if (category === "reusable adhesive putty") return "temporary mounting of lightweight paper, posters, notes, photos, or craft materials";
+  if (category === "fragrance/cosmetics") return "personal fragrance or cosmetic use";
+  if (category === "stationery") return "writing, drawing, school, office, or craft use";
   if (category === "audio electronics") return "audio playback or communication use";
   if (category === "camera equipment") return "photography, video, or imaging use";
   if (category === "toy") return "children or hobby play/collectible use";
@@ -381,6 +463,7 @@ function inferUse(category: string) {
   if (category === "cosmetics") return "personal care or cosmetic use";
   if (category === "food") return "human consumption";
   if (category === "medical") return "medical, diagnostic, or clinical use; confirm claims";
+  if (category === "commercial product") return "retail, business, or consumer use based on the buyer order; confirm exact product function";
 
   return "commercial/consumer use; confirm intended use";
 }
@@ -388,9 +471,49 @@ function inferUse(category: string) {
 function buildDescription(query: string, summary: string, category: string) {
   const base = summary
     ? clean(summary)
-    : `${query} appears to be a ${category}. Confirm exact model, materials, accessories, and whether it is shipped complete or as parts.`;
+    : `${query} is treated as a best-effort ${category} profile from the quick-search text. Confirm exact product type, model, materials, accessories, packaging, and whether it is shipped complete, as a refill/consumable, or as spare parts.`;
 
   return `${base} Customs data to confirm: exact model/configuration, material composition, function, included accessories, quantity, country of origin, and whether the shipment contains batteries, liquids, regulated claims, or spare parts.`;
+}
+
+function meaningfulTokens(value: string) {
+  const ignored = new Set(["the", "and", "for", "with", "from", "product", "item", "model", "brand"]);
+
+  return normalizeSearchText(value)
+    .split(" ")
+    .filter((token) => token.length >= 3 && !ignored.has(token));
+}
+
+function isRelevantLookup(query: string, result: { summary: string; sourceName: string } | null) {
+  if (!result) return false;
+
+  const haystack = normalizeSearchText(`${result.sourceName} ${result.summary}`);
+  const tokens = meaningfulTokens(query);
+  if (!tokens.length) return false;
+
+  const hits = tokens.filter((token) => haystack.includes(token));
+  const hasModelHit = tokens.some((token) => /\d/.test(token) && haystack.includes(token));
+  const hasDistinctiveHit = tokens.some((token) => token.length >= 7 && haystack.includes(token));
+
+  return hits.length >= Math.min(2, tokens.length) || hasModelHit || hasDistinctiveHit;
+}
+
+function quickFindFromProfile(query: string, profile: ProductProfile): QuickFindItem {
+  const summary = profile.summary ?? "";
+  const category = profile.category ?? inferCategory(query, summary);
+  const brand = profile.brand ?? inferBrand(query);
+
+  return {
+    productName: profile.productName ?? query,
+    productDescription: buildDescription(query, summary, category),
+    materialComposition: profile.materialComposition ?? inferMaterial(query, summary),
+    intendedUse: profile.intendedUse ?? inferUse(category),
+    brand,
+    model: profile.model ?? inferModel(query, brand),
+    category,
+    sourceName: "TariffOS product profile",
+    confidence: "inferred"
+  };
 }
 
 async function searchDuckDuckGo(query: string): Promise<{
@@ -490,6 +613,11 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
     // Fall through to lightweight public lookup and deterministic inference.
   }
 
+  const directProfile = knownProductProfile(cleanQuery);
+  if (directProfile) {
+    return quickFindFromProfile(cleanQuery, directProfile);
+  }
+
   let wikipediaResult: Awaited<ReturnType<typeof searchWikipedia>> = null;
 
   try {
@@ -506,24 +634,27 @@ export async function quickFindItem(query: string): Promise<QuickFindItem> {
     internetResult = null;
   }
 
-  const summary = wikipediaResult?.summary ?? internetResult?.summary ?? "";
+  const source = [wikipediaResult, internetResult].find((result) => isRelevantLookup(cleanQuery, result)) ?? null;
+  const summary = source?.summary ?? "";
   const profile = knownProductProfile(cleanQuery, summary);
-  const effectiveSummary = profile?.summary ?? summary;
-  const category = profile?.category ?? inferCategory(cleanQuery, effectiveSummary);
-  const brand = profile?.brand ?? inferBrand(cleanQuery);
-  const source = wikipediaResult ?? internetResult;
-  const sourceName = profile ? "TariffOS product profile" : source?.sourceName ?? "TariffOS quick inference";
+  if (profile) {
+    return quickFindFromProfile(cleanQuery, profile);
+  }
+
+  const category = inferCategory(cleanQuery, summary);
+  const brand = inferBrand(cleanQuery);
+  const sourceName = source?.sourceName ?? "TariffOS quick inference";
 
   return {
-    productName: profile?.productName ?? cleanQuery,
-    productDescription: buildDescription(cleanQuery, effectiveSummary, category),
-    materialComposition: profile?.materialComposition ?? inferMaterial(cleanQuery, effectiveSummary),
-    intendedUse: profile?.intendedUse ?? inferUse(category),
+    productName: cleanQuery,
+    productDescription: buildDescription(cleanQuery, summary, category),
+    materialComposition: inferMaterial(cleanQuery, summary),
+    intendedUse: inferUse(category),
     brand,
-    model: profile?.model ?? cleanQuery,
+    model: inferModel(cleanQuery, brand),
     category,
     sourceName,
-    sourceUrl: profile ? undefined : source?.sourceUrl,
-    confidence: profile || !source ? "inferred" : "internet"
+    sourceUrl: source?.sourceUrl,
+    confidence: source ? "internet" : "inferred"
   };
 }
