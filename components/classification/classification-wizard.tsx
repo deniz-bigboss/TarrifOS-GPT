@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, FileUp, Loader2, PackageSearch, Route, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, FileUp, Loader2, Lock, PackageSearch, Route, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import type { ProductInputPayload } from "@/lib/validation/classification";
 import { productInputSchema } from "@/lib/validation/classification";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/field";
 import { cn } from "@/lib/utils/cn";
+import type { QuickFindItem } from "@/lib/item-detector/quick-find";
 import type { UploadedDocumentInput } from "@/types/classification";
 
 const steps = [
@@ -20,6 +21,7 @@ const steps = [
   { label: "Agent brief", description: "Ready for planning", icon: ClipboardCheck }
 ];
 type WizardField = keyof ProductInputPayload;
+type QuickFindStatus = "idle" | "loading" | "success" | "error";
 
 const defaultValues: ProductInputPayload = {
   productName: "Men's short-sleeve knitted t-shirt",
@@ -58,6 +60,7 @@ const stepFields: WizardField[][] = [
   ["documents"],
   []
 ];
+const productFields = stepFields[0];
 
 function getFirstErrorStep(formErrors: FieldErrors<ProductInputPayload>) {
   const errorFields = Object.keys(formErrors) as WizardField[];
@@ -71,6 +74,11 @@ export function ClassificationWizard() {
   const [step, setStep] = useState(0);
   const [documents, setDocuments] = useState<UploadedDocumentInput[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [quickFindEnabled, setQuickFindEnabled] = useState(false);
+  const [quickFindQuery, setQuickFindQuery] = useState("");
+  const [quickFindStatus, setQuickFindStatus] = useState<QuickFindStatus>("idle");
+  const [quickFindError, setQuickFindError] = useState<string | null>(null);
+  const [quickFindItem, setQuickFindItem] = useState<QuickFindItem | null>(null);
   const form = useForm<ProductInputPayload>({
     resolver: zodResolver(productInputSchema),
     defaultValues
@@ -79,6 +87,8 @@ export function ClassificationWizard() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    getValues,
+    setValue,
     trigger,
     watch
   } = form;
@@ -91,6 +101,108 @@ export function ClassificationWizard() {
     { label: "Quantity", value: reviewValues.quantity ? String(reviewValues.quantity) : "Not set" },
     { label: "Documents", value: documents.length ? `${documents.length} attached` : "None attached" }
   ];
+  const productFieldsLocked = quickFindEnabled;
+  const lockedFieldProps = productFieldsLocked
+    ? {
+        readOnly: true,
+        tabIndex: -1,
+        "aria-disabled": true
+      }
+    : {};
+
+  const applyQuickFindItem = useCallback((item: QuickFindItem) => {
+    setValue("productName", item.productName, { shouldDirty: true, shouldValidate: true });
+    setValue("productDescription", item.productDescription, { shouldDirty: true, shouldValidate: true });
+    setValue("category", item.category ?? "", { shouldDirty: true });
+    setValue("materialComposition", item.materialComposition ?? "", { shouldDirty: true });
+    setValue("intendedUse", item.intendedUse ?? "", { shouldDirty: true });
+    setValue("brand", item.brand ?? "", { shouldDirty: true });
+    setValue("model", item.model ?? "", { shouldDirty: true });
+    setValue("sku", "", { shouldDirty: true });
+  }, [setValue]);
+
+  const runQuickFind = useCallback(async (query: string, signal?: AbortSignal) => {
+    const trimmed = query.trim();
+
+    if (trimmed.length < 3) {
+      setQuickFindStatus("idle");
+      setQuickFindError(null);
+      setQuickFindItem(null);
+      setValue("productName", trimmed, { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+
+    setQuickFindStatus("loading");
+    setQuickFindError(null);
+
+    let response: Response;
+    try {
+      response = await fetch("/api/items/quick-find", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ query: trimmed }),
+        signal
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setQuickFindStatus("error");
+      setQuickFindError("Quick item lookup could not reach the internet lookup service.");
+      return;
+    }
+
+    let payload: { item?: QuickFindItem; error?: string } = {};
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+
+    if (!response.ok || !payload.item) {
+      setQuickFindStatus("error");
+      setQuickFindError(payload.error ?? `Quick item lookup failed with status ${response.status}.`);
+      return;
+    }
+
+    setQuickFindItem(payload.item);
+    setQuickFindStatus("success");
+    applyQuickFindItem(payload.item);
+    await trigger(productFields);
+  }, [applyQuickFindItem, setValue, trigger]);
+
+  function toggleQuickFind(enabled: boolean) {
+    setQuickFindEnabled(enabled);
+    setServerError(null);
+
+    if (enabled) {
+      const currentName = getValues("productName");
+      const initialQuery = currentName === defaultValues.productName ? "" : currentName;
+      setQuickFindQuery(initialQuery);
+      setQuickFindStatus(initialQuery.trim().length >= 3 ? "loading" : "idle");
+      setQuickFindError(null);
+      setQuickFindItem(null);
+      return;
+    }
+
+    setQuickFindStatus("idle");
+    setQuickFindError(null);
+    setQuickFindItem(null);
+  }
+
+  useEffect(() => {
+    if (!quickFindEnabled) return;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      void runQuickFind(quickFindQuery, controller.signal);
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [quickFindEnabled, quickFindQuery, runQuickFind]);
 
   async function onSubmit(values: ProductInputPayload) {
     setServerError(null);
@@ -140,6 +252,19 @@ export function ClassificationWizard() {
 
   async function onNextStep() {
     setServerError(null);
+
+    if (step === 0 && quickFindEnabled) {
+      if (quickFindQuery.trim().length < 3) {
+        setServerError("Enter at least 3 characters in quick find before continuing.");
+        return;
+      }
+
+      if (quickFindStatus === "loading") {
+        setServerError("Quick item detector is still searching. Wait for the item to apply before continuing.");
+        return;
+      }
+    }
+
     const currentStepFields = stepFields[step] ?? [];
     const isStepValid = currentStepFields.length ? await trigger(currentStepFields, { shouldFocus: true }) : true;
 
@@ -226,40 +351,123 @@ export function ClassificationWizard() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="grid gap-5 p-6 md:grid-cols-2">
+            <CardContent className="p-6">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white text-emerald-700 shadow-sm">
+                      <Sparkles className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-950">Quick item detector</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">Online lookup fills and locks the product fields.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={quickFindEnabled}
+                    onClick={() => toggleQuickFind(!quickFindEnabled)}
+                    className={cn(
+                      "flex h-9 w-16 shrink-0 items-center rounded-full border p-1 transition-colors",
+                      quickFindEnabled ? "border-emerald-700 bg-emerald-700" : "border-slate-300 bg-white"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm transition-transform",
+                        quickFindEnabled ? "translate-x-7 text-emerald-700" : "translate-x-0"
+                      )}
+                    >
+                      {quickFindEnabled ? <Lock className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
+                    </span>
+                  </button>
+                </div>
+
+                {quickFindEnabled ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="quickFindQuery">Quick find</Label>
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          id="quickFindQuery"
+                          value={quickFindQuery}
+                          onChange={(event) => setQuickFindQuery(event.target.value)}
+                          placeholder="S-Works Tarmac SL9"
+                          className="pl-9"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+                    <div className="min-h-6 text-sm">
+                      {quickFindStatus === "loading" ? (
+                        <p className="flex items-center gap-2 font-medium text-blue-700">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Searching online sources
+                        </p>
+                      ) : null}
+                      {quickFindStatus === "success" && quickFindItem ? (
+                        <p className="font-medium text-emerald-700">
+                          Applied {quickFindItem.confidence === "internet" ? "internet result" : "inferred item profile"} from {quickFindItem.sourceName}
+                          {quickFindItem.sourceUrl ? (
+                            <a href={quickFindItem.sourceUrl} target="_blank" rel="noreferrer" className="ml-1 underline">
+                              source
+                            </a>
+                          ) : null}
+                        </p>
+                      ) : null}
+                      {quickFindStatus === "error" ? (
+                        <p className="font-medium text-red-700">{quickFindError}</p>
+                      ) : null}
+                      {quickFindStatus === "idle" ? (
+                        <p className="text-slate-500">Product fields are locked while detector mode is active.</p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div
+                className={cn(
+                  "mt-6 grid gap-5 md:grid-cols-2",
+                  productFieldsLocked && "pointer-events-none select-none opacity-45 grayscale"
+                )}
+              >
               <div className="space-y-2">
                 <Label htmlFor="productName">Product name</Label>
-                <Input id="productName" {...register("productName")} />
+                <Input id="productName" {...register("productName")} {...lockedFieldProps} />
                 <FieldError message={errors.productName?.message} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Input id="category" {...register("category")} />
+                <Input id="category" {...register("category")} {...lockedFieldProps} />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="productDescription">Product description</Label>
-                <Textarea id="productDescription" {...register("productDescription")} />
+                <Textarea id="productDescription" {...register("productDescription")} {...lockedFieldProps} />
                 <FieldError message={errors.productDescription?.message} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="materialComposition">Material composition</Label>
-                <Input id="materialComposition" {...register("materialComposition")} />
+                <Input id="materialComposition" {...register("materialComposition")} {...lockedFieldProps} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="intendedUse">Intended use</Label>
-                <Input id="intendedUse" {...register("intendedUse")} />
+                <Input id="intendedUse" {...register("intendedUse")} {...lockedFieldProps} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="brand">Brand</Label>
-                <Input id="brand" {...register("brand")} />
+                <Input id="brand" {...register("brand")} {...lockedFieldProps} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="model">Model</Label>
-                <Input id="model" {...register("model")} />
+                <Input id="model" {...register("model")} {...lockedFieldProps} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="sku">SKU</Label>
-                <Input id="sku" {...register("sku")} />
+                <Input id="sku" {...register("sku")} {...lockedFieldProps} />
+              </div>
               </div>
             </CardContent>
           </Card>
